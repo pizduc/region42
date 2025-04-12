@@ -1,0 +1,130 @@
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import axios from "axios";
+
+const News = () => {
+  const [news, setNews] = useState([]);
+  const [isSpecialUser, setIsSpecialUser] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setIsSpecialUser(localStorage.getItem("isSpecialUser") === "true");
+    fetchNews();
+  }, []);
+
+  const fetchNews = async () => {
+    try {
+      const response = await axios.get("http://localhost:3000/api/news");
+      setNews(response.data);
+    } catch (error) {
+      console.error("Ошибка загрузки новостей:", error);
+    }
+  };
+
+  const handleAddNews = async () => {
+    const userId = localStorage.getItem("userId"); // Получаем userId из localStorage
+    if (!userId) {
+      console.error("❌ userId не найден в localStorage!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.post("http://localhost:3000/api/news", {
+        title: newTitle,
+        content: newContent,
+        userId, // 🔥 Убедись, что он есть!
+      });
+
+      console.log("✅ Ответ сервера:", response.data);
+      setNewTitle("");
+      setNewContent("");
+      fetchNews();
+    } catch (error) {
+      console.error("❌ Ошибка при добавлении новости:", error.response?.data || error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteNews = async (newsId: string) => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      console.error("❌ userId не найден в localStorage!");
+      return;
+    }
+  
+    try {
+      const response = await axios.delete(`http://localhost:3000/api/news/${newsId}?userId=${userId}`);
+      if (response.data.success) {
+        console.log("✅ Новость удалена");
+        setNews(news.filter((item) => item.id !== newsId)); // Убираем удаленную новость из списка
+      }
+    } catch (error) {
+      console.error("❌ Ошибка при удалении новости:", error.response?.data || error.message);
+    }
+  };  
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Новости</h1>
+
+      {/* Форма добавления новости - только для specialUser */}
+      {isSpecialUser && (
+        <div className="mb-6 p-4 border rounded-lg shadow">
+          <h2 className="text-lg font-semibold">Добавить новость</h2>
+          <Input
+            placeholder="Заголовок новости"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            className="mt-2"
+          />
+          <Textarea
+            placeholder="Текст новости"
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
+            className="mt-2"
+          />
+          <Button onClick={handleAddNews} className="mt-3" disabled={loading}>
+            {loading ? "Добавление..." : "Добавить новость"}
+          </Button>
+        </div>
+      )}
+
+      {/* Список новостей */}
+      <div className="grid gap-4">
+        {news.map((item) => (
+          <Card key={item.id}>
+            <CardHeader>
+              <CardTitle>{item.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>{item.content}</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {new Date(item.created_at).toLocaleString("ru-RU")}
+              </p>
+
+              {/* Кнопка удаления для specialUser */}
+              {isSpecialUser && (
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDeleteNews(item.id)}
+                  className="mt-2"
+                >
+                  Удалить новость
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default News;

@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 215 20.2% 65.1%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.75rem;
+  }
+  
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217.2 32.6% 40.5%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 85%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.page-transition {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.card-hover {
+  @apply transition-all duration-200 hover:scale-[1.02] hover:-translate-y-1;
+}
+
+.gradient-background {
+  @apply bg-gradient-to-br from-primary/20 to-primary/10;
+}
+
+/* Dark mode specific text styling */
+.dark .card-title {
+  @apply text-white;
+}
+
+.dark .card-description,
+.dark .card-content {
+  @apply text-gray-300;
+}
+
+.dark .text-muted-foreground {
+  @apply text-gray-300;
+}
+
+.dark .muted-text {
+  @apply text-gray-300;
+}
+
+/* Form fields in dark mode */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="tel"],
+.dark input[type="date"],
+.dark input[type="time"],
+.dark textarea,
+.dark select {
+  @apply bg-gray-800 border-gray-700 text-white placeholder:text-gray-400;
+}
+
+.dark .bg-white {
+  @apply bg-gray-800 text-white;
+}
+
+/* Dark mode treatment for cards with gradient backgrounds */
+.dark .bg-gradient-to-br.from-blue-50,
+.dark .bg-gradient-to-br.from-green-50,
+.dark .bg-gradient-to-br.from-amber-50,
+.dark .bg-gradient-to-br.from-indigo-50,
+.dark .bg-gradient-to-br.from-orange-50,
+.dark .bg-gradient-to-br.from-purple-50 {
+  @apply text-white from-gray-800 to-gray-700;
+}
+
+/* Ensure text in colored cards is visible in dark mode */
+.dark .text-gray-500 {
+  @apply text-gray-300;
+}
+
+.dark .text-sm.text-muted-foreground {
+  @apply text-gray-300;
+}
+
+.dark .bg-muted\/30 {
+  @apply bg-gray-700/50;
+}
+
+/* Form element specific dark mode styling */
+.dark .rdtPicker {
+  @apply bg-gray-800 text-white border-gray-700;
+}
+
+.dark .rdtPicker th {
+  @apply text-gray-300;
+}
+
+.dark select option {
+  @apply bg-gray-800 text-white;
+}
+
+.dark [data-radix-select-trigger] {
+  @apply bg-gray-800 border-gray-700 text-white;
+}
+
+.dark [data-radix-select-content] {
+  @apply bg-gray-800 border-gray-700;
+}
+
+.dark [data-radix-select-item] {
+  @apply text-white hover:bg-gray-700;
+}
+
+.dark [data-radix-select-item][data-highlighted] {
+  @apply bg-gray-700 text-white;
+}
+
+/* Элементы форм */
+.form-input-focus {
+  @apply focus:ring-2 focus:ring-primary/50 focus:border-primary;
+}
+
+/* Анимации */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+/* Гласоморфизм */
+.glass {
+  @apply bg-white/70 backdrop-blur-sm border border-white/30 shadow-sm dark:bg-black/30 dark:border-white/10;
+}
+
+/* Градиенты текста */
+.text-gradient {
+  @apply bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent;
+}

@@ -1,0 +1,21 @@
+/* components/ui/card.css */
+.card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .card-content {
+    padding: 16px;
+  }
+  
+  .card-header {
+    padding: 12px;
+    background-color: #f4f4f4;
+  }
+  
+  .card-title {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  
