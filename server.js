@@ -4,20 +4,28 @@ import cors from "cors";
 import pg from 'pg';  
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
+import path from "path";
+import { fileURLToPath } from "url";
+import config from "./config.js"; // Подключаем конфиг
 
 dotenv.config();
 
 console.log("🚀 Сервер перезапущен и готов к работе!");
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+// Получаем путь к текущему файлу и директории
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+// Настройки CORS
 app.use(cors({
-  origin: "http://localhost:8081",  // Разрешение запросов с вашего фронтенда
+  origin: config.cors.origins,
 }));
+
 app.use(express.json());
 
-тз
 // Подключение к базе данных PostgreSQL
 const { Client } = pg;
 const db = new Client({
@@ -39,25 +47,6 @@ db.connect((err) => {
     process.exit(1); // Завершаем процесс, если не удалось подключиться
   }
   console.log("✅ Подключение к базе данных PostgreSQL успешно!");
-});
-
-// Прокси для запросов к стороннему API
-app.get('/proxy', async (req, res) => {
-  const { query, type, city, street } = req.query;
-
-  try {
-    const response = await axios.get('https://region42.onrender.com/suggest', {
-      params: { query, type, city, street }, // Передаем параметры из запроса
-    });
-    res.json(response.data); // Отправляем полученные данные обратно на фронтенд
-  } catch (error) {
-    console.error('Ошибка при запросе к стороннему API:', error);
-    res.status(500).send('Ошибка при получении данных от внешнего API');
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Сервер запущен на порту ${PORT}`);
 });
 
 // Настройка SMTP для отправки email
@@ -141,38 +130,8 @@ app.post("/api/applications", (req, res) => {
 const API_KEY = process.env.API_KEY;
 const SUGGEST_URL = "https://suggest-maps.yandex.ru/v1/suggest";
 
-// Функция получения подсказок
-const fetchSuggestions = async (query, types) => {
-  try {
-    const url = `${SUGGEST_URL}?apikey=${API_KEY}&text=${encodeURIComponent(query)}&lang=ru_RU&types=${types}`;
-
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      },
-    });
-
-    if (response.status !== 200) {
-      console.error(`❌ Ошибка API: ${response.status} ${response.statusText}`, response.data);
-      return [];
-    }
-
-    const data = response.data;
-
-    if (!data.results) {
-      console.warn("⚠️ Пустой ответ от API:", data);
-      return [];
-    }
-
-    return [...new Set(data.results.map((item) => item.title.text))];
-  } catch (error) {
-    console.error("❌ Ошибка при запросе к API:", error.response?.status, error.response?.data || error.message);
-    return [];
-  }
-};
-
 // ✅ Маршрут получения подсказок
-app.get("/suggest", async (req, res) => {
+app.get("/api/suggest", async (req, res) => {
   const { query, type, city, street } = req.query;
 
   if (!query) {
@@ -795,7 +754,15 @@ app.get("/api/suggest-fio", async (req, res) => {
   }
 });
 
-// ✅ Запуск сервера
-app.listen(PORT, () => {
-  console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
+const buildPath = path.resolve(__dirname, './dist');
+
+app.use(express.static(buildPath));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
+
+// Старт сервера
+app.listen(config.port, '0.0.0.0', () => {
+  console.log(`🚀 Сервер запущен на порту ${config.port}`);
 });
