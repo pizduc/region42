@@ -130,6 +130,30 @@ app.post("/api/applications", (req, res) => {
 const API_KEY = process.env.API_KEY;
 const SUGGEST_URL = "https://suggest-maps.yandex.ru/v1/suggest";
 
+async function fetchSuggestions(query, types) {
+  try {
+    const response = await axios.get("https://suggest-maps.yandex.ru/v1/suggest", {
+      params: {
+        apikey: process.env.API_KEY,  // или config.apis.yandexApiKey
+        text: query,
+        lang: "ru_RU",
+        types: types,
+      },
+    });
+
+    return response.data.results.map(item => item.title.text);
+  } catch (error) {
+    console.error("❌ Ошибка при запросе к Яндекс API:");
+    if (error.response) {
+      console.error("Статус ответа:", error.response.status);
+      console.error("Данные ответа:", error.response.data);
+    } else {
+      console.error("Сообщение ошибки:", error.message);
+    }
+    throw new Error("Ошибка получения подсказок от Яндекса");
+  }
+}
+
 // ✅ Маршрут получения подсказок
 app.get("/api/suggest", async (req, res) => {
   const { query, type, city, street } = req.query;
