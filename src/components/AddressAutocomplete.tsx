@@ -28,9 +28,11 @@ export function AddressAutocomplete({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
+  // Функция для получения подсказок с сервера
   const fetchSuggestions = async (query: string) => {
     if (!query) return setSuggestions([]);
 
+    // Проверка на обязательные значения для типов house и street
     if ((type === "house" && (!cityValue || !streetValue)) || (type === "street" && !cityValue)) {
       return setSuggestions([]);
     }
@@ -39,16 +41,19 @@ export function AddressAutocomplete({
       setLoading(true);
       setError(false);
 
-      const baseUrl = import.meta.env.VITE_SERVER_URL || "";
+      const baseUrl = "https://region42.onrender.com/api"; // Убедитесь, что это правильный базовый URL
 
       const response = await fetch(
         `${baseUrl}/suggest?query=${encodeURIComponent(query)}&type=${type}&city=${encodeURIComponent(cityValue || "")}&street=${encodeURIComponent(streetValue || "")}`
       );
 
-      if (!response.ok) throw new Error("Ошибка запроса к серверу");
+      if (!response.ok) {
+        throw new Error("Ошибка запроса к серверу");
+      }
 
       const data = await response.json();
 
+      // Фильтрация дублирующихся и лишних данных
       let filteredSuggestions: string[] = Array.from(new Set(data.suggestions || []));
 
       if (type === "house") {
@@ -70,13 +75,16 @@ export function AddressAutocomplete({
     }
   };
 
+  // Делаем запрос с задержкой, чтобы избежать частых запросов
   useEffect(() => {
     const timer = setTimeout(() => fetchSuggestions(inputValue), 300);
     return () => clearTimeout(timer);
   }, [inputValue, type, cityValue, streetValue]);
 
+  // Синхронизация значения из props с внутренним состоянием
   useEffect(() => setInputValue(value || ""), [value]);
 
+  // Рендерим сообщение об ошибке или состоянии загрузки
   const renderEmptyMessage = () => {
     if (loading) return "Загрузка...";
     if (error) return "Ошибка загрузки";
