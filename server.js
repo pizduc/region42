@@ -1,7 +1,7 @@
 import express from "express";
 import axios from "axios";
 import cors from "cors";
-import mysql from "mysql2";
+import pg from 'pg';  
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 
@@ -10,26 +10,54 @@ dotenv.config();
 console.log("🚀 Сервер перезапущен и готов к работе!");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: "http://localhost:8080" }));
+app.use(cors({
+  origin: "http://localhost:8081",  // Разрешение запросов с вашего фронтенда
+}));
 app.use(express.json());
 
-
-// Подключение к базе данных MySQL
-const db = mysql.createConnection({
+тз
+// Подключение к базе данных PostgreSQL
+const { Client } = pg;
+const db = new Client({
   host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 5432,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  connectionTimeoutMillis: 5000, // Таймаут подключения
+  idleTimeoutMillis: 10000,      // Таймаут для неактивных соединений
+  ssl: {
+    rejectUnauthorized: false // ⚠️ Можно использовать в dev-режиме
+  }
 });
 
 db.connect((err) => {
   if (err) {
-    console.error("❌ Ошибка подключения к базе данных:", err);
+    console.error("❌ Ошибка подключения к базе данных PostgreSQL:", err);
     process.exit(1); // Завершаем процесс, если не удалось подключиться
   }
-  console.log("✅ Подключение к базе данных MySQL успешно!");
+  console.log("✅ Подключение к базе данных PostgreSQL успешно!");
+});
+
+// Прокси для запросов к стороннему API
+app.get('/proxy', async (req, res) => {
+  const { query, type, city, street } = req.query;
+
+  try {
+    const response = await axios.get('https://region42.onrender.com/suggest', {
+      params: { query, type, city, street }, // Передаем параметры из запроса
+    });
+    res.json(response.data); // Отправляем полученные данные обратно на фронтенд
+  } catch (error) {
+    console.error('Ошибка при запросе к стороннему API:', error);
+    res.status(500).send('Ошибка при получении данных от внешнего API');
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Сервер запущен на порту ${PORT}`);
 });
 
 // Настройка SMTP для отправки email
@@ -118,8 +146,6 @@ const fetchSuggestions = async (query, types) => {
   try {
     const url = `${SUGGEST_URL}?apikey=${API_KEY}&text=${encodeURIComponent(query)}&lang=ru_RU&types=${types}`;
 
-    console.log("🌐 Запрос к Яндекс Саджесту:", url);
-
     const response = await axios.get(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -138,7 +164,6 @@ const fetchSuggestions = async (query, types) => {
       return [];
     }
 
-    // Уникальные подсказки по тексту
     return [...new Set(data.results.map((item) => item.title.text))];
   } catch (error) {
     console.error("❌ Ошибка при запросе к API:", error.response?.status, error.response?.data || error.message);

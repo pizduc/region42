@@ -39,27 +39,25 @@ export function AddressAutocomplete({
       setLoading(true);
       setError(false);
 
+      const baseUrl = import.meta.env.VITE_SERVER_URL || "";
+
       const response = await fetch(
-        `http://localhost:3000/suggest?query=${query}&type=${type}&city=${cityValue || ""}&street=${streetValue || ""}`
+        `${baseUrl}/suggest?query=${encodeURIComponent(query)}&type=${type}&city=${encodeURIComponent(cityValue || "")}&street=${encodeURIComponent(streetValue || "")}`
       );
 
       if (!response.ok) throw new Error("Ошибка запроса к серверу");
+
       const data = await response.json();
 
-      // Указание типа данных для suggestions как string[]
       let filteredSuggestions: string[] = Array.from(new Set(data.suggestions || []));
 
-      // Фильтрация номеров домов
       if (type === "house") {
         filteredSuggestions = filteredSuggestions
           .map((s) => {
-            // Преобразование s в строку для использования метода match
-            const match = (s as string).match(/(?:\d+[A-Za-zа-яА-Я]*)$/); // Ищем только цифры с буквой в конце
-            return match ? match[0] : null; // Возвращаем только номер дома
+            const match = (s as string).match(/(?:\d+[A-Za-zа-яА-Я]*)$/);
+            return match ? match[0] : null;
           })
-          .filter((s) => s !== null); // Убираем null значения
-
-        console.log("Фильтрованные предложения для дома:", filteredSuggestions);
+          .filter((s) => s !== null);
       }
 
       setSuggestions(filteredSuggestions);
@@ -79,7 +77,6 @@ export function AddressAutocomplete({
 
   useEffect(() => setInputValue(value || ""), [value]);
 
-  // Показ сообщений о загрузке/ошибке только один раз
   const renderEmptyMessage = () => {
     if (loading) return "Загрузка...";
     if (error) return "Ошибка загрузки";
@@ -103,9 +100,7 @@ export function AddressAutocomplete({
             onValueChange={setInputValue}
           />
           <CommandList>
-            {renderEmptyMessage() && (
-              <CommandEmpty>{renderEmptyMessage()}</CommandEmpty>
-            )}
+            {renderEmptyMessage() && <CommandEmpty>{renderEmptyMessage()}</CommandEmpty>}
             <CommandGroup>
               {suggestions.map((suggestion) => (
                 <CommandItem
