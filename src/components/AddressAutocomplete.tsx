@@ -41,7 +41,7 @@ export function AddressAutocomplete({
       setLoading(true);
       setError(false);
 
-      const baseUrl = "https://region42.onrender.com/api"; // Убедитесь, что это правильный базовый URL
+      const baseUrl = import.meta.env.VITE_API_URL;
 
       const response = await fetch(
         `${baseUrl}/suggest?query=${encodeURIComponent(query)}&type=${type}&city=${encodeURIComponent(cityValue || "")}&street=${encodeURIComponent(streetValue || "")}`
