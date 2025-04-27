@@ -19,8 +19,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-const corsOrigins = process.env.CORS_ORIGINS || "http://localhost:10000,https://region42.onrender.com";
-
 app.use(cors({
   origin: corsOrigins.split(','),
 }));
