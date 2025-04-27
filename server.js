@@ -17,11 +17,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 8086;
 
-// Настройки CORS
+const corsOrigins = process.env.CORS_ORIGINS || "http://localhost:8086,https://region42.onrender.com";
+
 app.use(cors({
-  origin: config.cors.origins,
+  origin: corsOrigins.split(','),
 }));
 
 app.use(express.json());
@@ -47,6 +48,67 @@ db.connect((err) => {
     process.exit(1); // Завершаем процесс, если не удалось подключиться
   }
   console.log("✅ Подключение к базе данных PostgreSQL успешно!");
+});
+
+// ✅ Настройки Яндекс Саджест
+const API_KEY = process.env.API_KEY;
+const SUGGEST_URL = "https://suggest-maps.yandex.ru/v1/suggest";
+
+async function fetchSuggestions(query, types) {
+  try {
+    const response = await axios.get("https://suggest-maps.yandex.ru/v1/suggest", {
+      params: {
+        apikey: process.env.API_KEY,  // или config.apis.yandexApiKey
+        text: query,
+        lang: "ru_RU",
+        types: types,
+      },
+    });
+
+    return response.data.results.map(item => item.title.text);
+  } catch (error) {
+    console.error("❌ Ошибка при запросе к Яндекс API:");
+    if (error.response) {
+      console.error("Статус ответа:", error.response.status);
+      console.error("Данные ответа:", error.response.data);
+    } else {
+      console.error("Сообщение ошибки:", error.message);
+    }
+    throw new Error("Ошибка получения подсказок от Яндекса");
+  }
+}
+
+// ✅ Маршрут получения подсказок
+app.get("/api/suggest", async (req, res) => {
+  const { query, type, city, street } = req.query;
+
+  if (!query) {
+    return res.status(400).json({ error: "Запрос пуст" });
+  }
+
+  let types;
+  let fullQuery = query;
+
+  switch (type) {
+    case "city":
+      types = "geo";
+      break;
+    case "street":
+      if (!city) return res.status(400).json({ error: "Город обязателен для поиска улиц" });
+      types = "street";
+      fullQuery = `${city} ${query}`;
+      break;
+    case "house":
+      if (!city || !street) return res.status(400).json({ error: "Город и улица обязательны для поиска домов" });
+      types = "house";
+      fullQuery = `${city} ${street} ${query}`;
+      break;
+    default:
+      return res.status(400).json({ error: "Некорректный тип поиска" });
+  }
+
+  const suggestions = await fetchSuggestions(fullQuery, types);
+  res.json({ suggestions });
 });
 
 // Настройка SMTP для отправки email
@@ -124,67 +186,6 @@ app.post("/api/applications", (req, res) => {
       console.log("📩 Email отправлен:", info.response);
     });
   });
-});
-
-// ✅ Настройки Яндекс Саджест
-const API_KEY = process.env.API_KEY;
-const SUGGEST_URL = "https://suggest-maps.yandex.ru/v1/suggest";
-
-async function fetchSuggestions(query, types) {
-  try {
-    const response = await axios.get("https://suggest-maps.yandex.ru/v1/suggest", {
-      params: {
-        apikey: process.env.API_KEY,  // или config.apis.yandexApiKey
-        text: query,
-        lang: "ru_RU",
-        types: types,
-      },
-    });
-
-    return response.data.results.map(item => item.title.text);
-  } catch (error) {
-    console.error("❌ Ошибка при запросе к Яндекс API:");
-    if (error.response) {
-      console.error("Статус ответа:", error.response.status);
-      console.error("Данные ответа:", error.response.data);
-    } else {
-      console.error("Сообщение ошибки:", error.message);
-    }
-    throw new Error("Ошибка получения подсказок от Яндекса");
-  }
-}
-
-// ✅ Маршрут получения подсказок
-app.get("/api/suggest", async (req, res) => {
-  const { query, type, city, street } = req.query;
-
-  if (!query) {
-    return res.status(400).json({ error: "Запрос пуст" });
-  }
-
-  let types;
-  let fullQuery = query;
-
-  switch (type) {
-    case "city":
-      types = "geo";
-      break;
-    case "street":
-      if (!city) return res.status(400).json({ error: "Город обязателен для поиска улиц" });
-      types = "street";
-      fullQuery = `${city} ${query}`;
-      break;
-    case "house":
-      if (!city || !street) return res.status(400).json({ error: "Город и улица обязательны для поиска домов" });
-      types = "house";
-      fullQuery = `${city} ${street} ${query}`;
-      break;
-    default:
-      return res.status(400).json({ error: "Некорректный тип поиска" });
-  }
-
-  const suggestions = await fetchSuggestions(fullQuery, types);
-  res.json({ suggestions });
 });
 
 app.post("/api/login", (req, res) => {
