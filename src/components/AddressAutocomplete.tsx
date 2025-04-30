@@ -29,7 +29,7 @@ export function AddressAutocomplete({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = "https://best-yard.onrender.com/api";
+  const apiUrl = "https://region42.onrender.com/api";
 
   const fetchSuggestions = async (query: string) => {
     if (!query) {
