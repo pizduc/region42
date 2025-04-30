@@ -1,7 +1,7 @@
 import express from "express";
 import axios from "axios";
 import cors from "cors";
-import pg from 'pg';  
+import pkg from "pg";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import path from "path";
@@ -10,35 +10,21 @@ import config from "./config.js"; // Подключаем конфиг
 
 dotenv.config();
 
-console.log("🚀 Сервер перезапущен и готов к работе!");
-
 // Получаем путь к текущему файлу и директории
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const { Pool } = pkg; // Извлекаем Pool из импортированного объекта
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const db = new Pool(config.db);
 
+// Настройки CORS
 app.use(cors({
-  origin: corsOrigins.split(','),
+  origin: config.cors.origins,
 }));
 
+// Настройка для обработки JSON
 app.use(express.json());
-
-// Подключение к базе данных PostgreSQL
-const { Client } = pg;
-const db = new Client({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 5432,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  connectionTimeoutMillis: 5000, // Таймаут подключения
-  idleTimeoutMillis: 10000,      // Таймаут для неактивных соединений
-  ssl: {
-    rejectUnauthorized: false // ⚠️ Можно использовать в dev-режиме
-  }
-});
 
 db.connect((err) => {
   if (err) {
@@ -52,61 +38,30 @@ db.connect((err) => {
 const API_KEY = process.env.API_KEY;
 const SUGGEST_URL = "https://suggest-maps.yandex.ru/v1/suggest";
 
-async function fetchSuggestions(query, types) {
-  try {
-    const response = await axios.get("https://suggest-maps.yandex.ru/v1/suggest", {
-      params: {
-        apikey: process.env.API_KEY,  // или config.apis.yandexApiKey
-        text: query,
-        lang: "ru_RU",
-        types: types,
-      },
-    });
-
-    return response.data.results.map(item => item.title.text);
-  } catch (error) {
-    console.error("❌ Ошибка при запросе к Яндекс API:");
-    if (error.response) {
-      console.error("Статус ответа:", error.response.status);
-      console.error("Данные ответа:", error.response.data);
-    } else {
-      console.error("Сообщение ошибки:", error.message);
-    }
-    throw new Error("Ошибка получения подсказок от Яндекса");
-  }
-}
-
 // ✅ Маршрут получения подсказок
 app.get("/api/suggest", async (req, res) => {
-  const { query, type, city, street } = req.query;
+  const { query, type } = req.query;
 
-  if (!query) {
-    return res.status(400).json({ error: "Запрос пуст" });
+  if (!query || !type) {
+    return res.status(400).json({ error: "Необходимо указать параметры query и type" });
   }
 
-  let types;
-  let fullQuery = query;
-
-  switch (type) {
-    case "city":
-      types = "geo";
-      break;
-    case "street":
-      if (!city) return res.status(400).json({ error: "Город обязателен для поиска улиц" });
-      types = "street";
-      fullQuery = `${city} ${query}`;
-      break;
-    case "house":
-      if (!city || !street) return res.status(400).json({ error: "Город и улица обязательны для поиска домов" });
-      types = "house";
-      fullQuery = `${city} ${street} ${query}`;
-      break;
-    default:
-      return res.status(400).json({ error: "Некорректный тип поиска" });
+  try {
+    const params = {
+      apikey: config.apis.yandexApiKey,
+      text: query,
+      lang: "ru_RU",
+      types: type,
+    };
+    
+    const response = await axios.get("https://suggest-maps.yandex.ru/v1/suggest", { params });
+    
+    const suggestions = response.data.results.map(item => item.title.text);
+    res.json({ suggestions });
+  } catch (error) {
+    console.error("❌ Ошибка Яндекс API:", error.message);
+    res.status(500).json({ error: "Ошибка при запросе к Яндекс API" });
   }
-
-  const suggestions = await fetchSuggestions(fullQuery, types);
-  res.json({ suggestions });
 });
 
 // Настройка SMTP для отправки email
