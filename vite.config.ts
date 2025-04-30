@@ -15,7 +15,11 @@ export default defineConfig(({ mode }) => ({
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
-  },  
+  },
+  preview: {
+    port: 4173,
+    allowedHosts: ["region42.onrender.com", "best-yard.onrender.com"], // ✅ добавили Render-хосты
+  },
   plugins: [
     react(),
     mode === 'development' &&
