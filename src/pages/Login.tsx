@@ -158,7 +158,7 @@ const Login = () => {
                     value={formData.city}
                     onChange={(value) => setFormData({ ...formData, city: value })}
                     placeholder="Город"
-                    type="city"
+                    type="locality"
                   />
                 </div>
                 <div className="space-y-2">
