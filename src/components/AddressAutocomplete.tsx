@@ -1,8 +1,19 @@
 import { useState, useEffect } from "react";
-import { Check } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandInput, CommandList, CommandItem, CommandGroup, CommandEmpty } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 
@@ -10,7 +21,7 @@ interface AddressAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
-  type: "city" | "street" | "house";
+  type: "locality" | "street" | "house";
   cityValue?: string;
   streetValue?: string;
 }
@@ -21,7 +32,7 @@ export function AddressAutocomplete({
   placeholder,
   type,
   cityValue,
-  streetValue
+  streetValue,
 }: AddressAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value || "");
@@ -29,44 +40,48 @@ export function AddressAutocomplete({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = "https://region42.onrender.com/api";
-
   const fetchSuggestions = async (query: string) => {
     if (!query) {
-      return setSuggestions([]);
+      setSuggestions([]);
+      return;
     }
 
     try {
       setLoading(true);
       setError(null);
 
-      const params = {
-        query,
-        type,
-        city: cityValue || "",
-        street: streetValue || "",
-      };
+      const baseUrl = "https://best-yard.onrender.com/api";
+      const params: any = { query, type };
 
-      const response = await axios.get(`${apiUrl}/suggest`, { params });
+      if (type === "street" && cityValue) params.locality = cityValue;
+      if (type === "house" && cityValue && streetValue) {
+        params.locality = cityValue;
+        params.street = streetValue;
+      }      
 
-      if (response.status !== 200) {
-        throw new Error("Ошибка запроса к серверу");
-      }
+      const response = await axios.get(`${baseUrl}/suggest`, { params });
+      const data = response.data;
 
-      let filteredSuggestions = response.data.suggestions || [];
+if (!Array.isArray(data.suggestions)) {
+  throw new Error("Неверный формат ответа от сервера");
+}
 
+let result: string[] = data.suggestions;
+
+
+      // Специальная обработка для домов — оставить только номер
       if (type === "house") {
-        filteredSuggestions = filteredSuggestions
-          .map((s: string) => {
-            const match = s.match(/(?:\d+[A-Za-zа-яА-Я]*)$/);
+        result = result
+          .map((s) => {
+            const match = (s as string).match(/(\d+\w*)$/);
             return match ? match[0] : null;
           })
-          .filter((s: string | null) => s !== null);
+          .filter((s): s is string => s !== null);
       }
 
-      setSuggestions(Array.from(new Set(filteredSuggestions)));
-    } catch (err) {
-      console.error("Ошибка получения данных:", err);
+      setSuggestions(Array.from(new Set(result)));
+    } catch (err: any) {
+      console.error("Ошибка получения данных:", err?.response?.data || err.message);
       setError("Ошибка получения данных");
       setSuggestions([]);
     } finally {
@@ -79,7 +94,9 @@ export function AddressAutocomplete({
     return () => clearTimeout(timer);
   }, [inputValue, type, cityValue, streetValue]);
 
-  useEffect(() => setInputValue(value || ""), [value]);
+  useEffect(() => {
+    setInputValue(value || "");
+  }, [value]);
 
   const renderEmptyMessage = () => {
     if (loading) return "Загрузка...";
@@ -91,14 +108,20 @@ export function AddressAutocomplete({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
           {value || placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[250px] p-0">
         <Command>
           <CommandInput
-            placeholder={`Поиск ${type === "city" ? "города" : type === "street" ? "улицы" : "дома"}...`}
+            placeholder={`Поиск ${type === "locality" ? "города" : type === "street" ? "улицы" : "дома"}...`}
             value={inputValue}
             onValueChange={setInputValue}
           />
@@ -116,7 +139,9 @@ export function AddressAutocomplete({
                   }}
                   className={cn("cursor-pointer", value === suggestion && "bg-gray-200")}
                 >
-                  <Check className={cn("mr-2 h-4 w-4", value === suggestion ? "opacity-100" : "opacity-0")} />
+                  <Check
+                    className={cn("mr-2 h-4 w-4", value === suggestion ? "opacity-100" : "opacity-0")}
+                  />
                   {suggestion}
                 </CommandItem>
               ))}
