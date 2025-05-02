@@ -26,7 +26,7 @@ const config = {
   },
   cors: {
     origins: isProduction 
-      ? ["https://region42.onrender.com"]
+      ? ["https://best-yard.onrender.com"]
       : ["http://localhost:8080"],
   },
 };
