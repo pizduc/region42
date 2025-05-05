@@ -60,7 +60,7 @@ const Login = () => {
     // Проверяем, что все обязательные поля заполнены
     if (requiredFields.every((field) => formData[field as keyof typeof formData])) {
       try {
-        const response = await axios.post("/api/login", {
+        const response = await axios.post("https://best-yard.onrender.com/api/login", {
           loginType,
           ...formData,
         });
