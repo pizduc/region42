@@ -34,14 +34,14 @@ app.use(cors(corsOptions)); // Применяем CORS
 app.use(express.json()); // Обработка JSON данных
 
 // Проверка подключения к базе данных
-db.on("connect", () => {
-  console.log("✅ Подключение к базе данных PostgreSQL успешно!");
-});
-
-db.on("error", (err) => {
-  console.error("❌ Ошибка подключения к базе данных PostgreSQL:", err);
-  process.exit(1); // Завершаем процесс, если не удалось подключиться
-});
+db.connect()
+  .then(() => {
+    console.log("✅ Подключение к базе данных PostgreSQL успешно!");
+  })
+  .catch((err) => {
+    console.error("❌ Ошибка подключения к базе данных PostgreSQL:", err);
+    process.exit(1); // Завершаем процесс, если не удалось подключиться
+  });
 
 // fetchSuggestions.js
 const fetchSuggestions = async (query, type) => {
@@ -165,64 +165,64 @@ app.post("/api/applications", (req, res) => {
   });
 });
 
-app.post("/api/login", (req, res) => {
+app.post("/api/login", async (req, res) => {
   const { loginType, city, street, house, apartment, contract, accountNumber } = req.body;
 
   console.log("Запрос на логин:", req.body);
 
-  let query;
-  let values;
+  let query = "";
+  let values = [];
 
-  if (loginType === "address") {
-    if (!city || !street || !house || !apartment || !contract) {
-      return res.status(400).json({ error: "Недостаточно данных для входа по адресу" });
+  try {
+    if (loginType === "address") {
+      if (!city || !street || !house || !apartment || !contract) {
+        return res.status(400).json({ error: "Недостаточно данных для входа по адресу" });
+      }
+
+      query = `
+        SELECT user_id, is_special_user FROM users
+        WHERE city = $1 AND street = $2 AND house = $3 AND apartment = $4 AND contract_number = $5
+      `;
+      values = [city, street, house, apartment, contract];
+
+    } else if (loginType === "account") {
+      if (!accountNumber) {
+        return res.status(400).json({ error: "Не указан номер лицевого счёта" });
+      }
+
+      query = `
+        SELECT user_id, is_special_user FROM users
+        WHERE account_number = $1
+      `;
+      values = [accountNumber];
+
+    } else {
+      return res.status(400).json({ error: "Некорректный тип логина" });
     }
 
-    query = `
-      SELECT user_id, is_special_user FROM users
-      WHERE city = ? AND street = ? AND house = ? AND apartment = ? AND contract_number = ?
-    `;
-    values = [city, street, house, apartment, contract];
-  } else if (loginType === "account") {
-    if (!accountNumber) {
-      return res.status(400).json({ error: "Не указан номер лицевого счёта" });
-    }
+    console.log("SQL-запрос:", query);
+    console.log("Значения:", values);
 
-    query = `
-      SELECT user_id, is_special_user FROM users
-      WHERE account_number = ?
-    `;
-    values = [accountNumber];
-  } else {
-    return res.status(400).json({ error: "Некорректный тип логина" });
-  }
+    const result = await db.query(query, values);
+    console.log("Результаты запроса:", result.rows);
 
-  console.log("Запрос:", query);
-  console.log("Значения:", values);
-
-  db.query(query, values, (err, results) => {
-    if (err) {
-      console.error("Ошибка при запросе к базе:", err);
-      return res.status(500).json({ error: "Ошибка сервера при логине" });
-    }
-
-    console.log("Результаты запроса:", results);
-
-    if (results.length > 0) {
-      const user = results[0];
-      console.log("Данные пользователя:", user);
-
-      res.json({
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      return res.json({
         success: true,
         userId: user.user_id,
-        isSpecialUser: Boolean(Number(user.is_special_user)),
+        isSpecialUser: Boolean(user.is_special_user),
       });
     } else {
-      console.log("Пользователь не найден");
-      res.status(401).json({ success: false, error: "Пользователь не найден" });
+      return res.status(401).json({ success: false, error: "Пользователь не найден" });
     }
-  });
+
+  } catch (err) {
+    console.error("Ошибка при логине:", err);
+    return res.status(500).json({ error: "Ошибка сервера при логине", details: err.message });
+  }
 });
+
 
 // Пример API для получения данных пользователя по лицевому счету
 app.post('/api/getUserAddress', async (req, res) => {
@@ -672,57 +672,51 @@ app.get("/api/paid-months", (req, res) => {
 });
 
 // Получение данных профиля
-app.get('/api/user/profile/:userId', (req, res) => {
+app.get('/api/user/profile/:userId', async (req, res) => {
   const userId = req.params.userId;
 
-  const query = 'SELECT * FROM user_profiles WHERE user_id = ?';
+  const query = 'SELECT * FROM user_profiles WHERE user_id = $1';
 
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error('Ошибка при получении профиля:', err);
-      return res.status(500).json({ error: 'Ошибка при получении профиля' });
-    }
-
-    if (results.length === 0) {
+  try {
+    const { rows } = await pool.query(query, [userId]);
+    if (rows.length === 0) {
       return res.status(404).json({ error: 'Профиль не найден' });
     }
-
-    res.json(results[0]);
-  });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Ошибка при получении профиля:', err);
+    res.status(500).json({ error: 'Ошибка при получении профиля' });
+  }
 });
 
 // Сохранение или обновление данных профиля (POST)
-app.post('/api/user/profile', (req, res) => {
+app.post('/api/user/profile', async (req, res) => {
+  console.log('Запрос на /api/user/profile:', req.body);
   const { userId, lastName, firstName, middleName, phone, email } = req.body;
 
   if (!userId) {
     return res.status(400).json({ error: 'userId обязателен' });
   }
 
-  // 1. Удаляем старые данные
-  const deleteQuery = 'DELETE FROM user_profiles WHERE user_id = ?';
+  const deleteQuery = 'DELETE FROM user_profiles WHERE user_id = $1';
 
-  db.query(deleteQuery, [userId], (err) => {
-    if (err) {
-      console.error('Ошибка при удалении старых данных профиля:', err);
-      return res.status(500).json({ error: 'Ошибка при удалении старых данных профиля' });
-    }
+  try {
+    // Удаляем старые данные
+    await pool.query(deleteQuery, [userId]);
 
-    // 2. Добавляем новые данные
     const insertQuery = `
       INSERT INTO user_profiles (user_id, last_name, first_name, middle_name, phone, email)
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6)
     `;
 
-    db.query(insertQuery, [userId, lastName, firstName, middleName, phone, email], (err) => {
-      if (err) {
-        console.error('Ошибка при сохранении профиля:', err);
-        return res.status(500).json({ error: 'Ошибка при сохранении профиля' });
-      }
+    // Добавляем новые данные
+    await pool.query(insertQuery, [userId, lastName, firstName, middleName, phone, email]);
 
-      res.json({ message: 'Данные профиля сохранены' });
-    });
-  });
+    res.json({ message: 'Данные профиля сохранены' });
+  } catch (err) {
+    console.error('Ошибка при сохранении профиля:', err);
+    res.status(500).json({ error: 'Ошибка при сохранении профиля' });
+  }
 });
 
 // Подсказка ФИО через Dadata
