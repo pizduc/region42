@@ -247,12 +247,12 @@ app.post('/api/getUserAddress', async (req, res) => {
 
 // ✅ Получение всех новостей
 app.get("/api/news", (req, res) => {
-  db.query("SELECT * FROM news ORDER BY created_at DESC", (err, results) => {
+  client.query("SELECT * FROM news ORDER BY created_at DESC", (err, results) => {
     if (err) {
       console.error("❌ Ошибка загрузки новостей:", err);
       return res.status(500).json({ error: "Ошибка сервера" });
     }
-    res.json(results);
+    res.json(results.rows); // PostgreSQL возвращает данные через поле rows
   });
 });
 
@@ -264,19 +264,19 @@ app.post("/api/news", (req, res) => {
     return res.status(400).json({ error: "Заголовок, текст и userId обязательны" });
   }
 
-  const checkUserQuery = "SELECT is_special_user FROM users WHERE user_id = ?";
-  db.query(checkUserQuery, [userId], (err, results) => {
+  const checkUserQuery = "SELECT is_special_user FROM users WHERE user_id = $1";
+  client.query(checkUserQuery, [userId], (err, results) => {
     if (err) {
       console.error("❌ Ошибка при проверке пользователя:", err);
       return res.status(500).json({ error: "Ошибка сервера" });
     }
 
-    if (results.length === 0 || !results[0].is_special_user) {
+    if (results.rows.length === 0 || !results.rows[0].is_special_user) {
       return res.status(403).json({ error: "Нет прав на добавление новостей" });
     }
 
-    const insertQuery = "INSERT INTO news (title, content) VALUES (?, ?)";
-    db.query(insertQuery, [title, content], (err) => {
+    const insertQuery = "INSERT INTO news (title, content) VALUES ($1, $2)";
+    client.query(insertQuery, [title, content], (err) => {
       if (err) {
         console.error("❌ Ошибка при добавлении новости:", err);
         return res.status(500).json({ error: "Ошибка сервера" });
@@ -297,20 +297,20 @@ app.delete("/api/news/:id", (req, res) => {
   }
 
   // Проверка, является ли пользователь особым (specialUser)
-  const checkUserQuery = "SELECT is_special_user FROM users WHERE user_id = ?";
-  db.query(checkUserQuery, [userId], (err, results) => {
+  const checkUserQuery = "SELECT is_special_user FROM users WHERE user_id = $1";
+  client.query(checkUserQuery, [userId], (err, results) => {
     if (err) {
       console.error("❌ Ошибка при проверке пользователя:", err);
       return res.status(500).json({ error: "Ошибка сервера" });
     }
 
-    if (results.length === 0 || !results[0].is_special_user) {
+    if (results.rows.length === 0 || !results.rows[0].is_special_user) {
       return res.status(403).json({ error: "Нет прав на удаление новостей" });
     }
 
     // Удаление новости из базы данных
-    const deleteQuery = "DELETE FROM news WHERE id = ?";
-    db.query(deleteQuery, [id], (err) => {
+    const deleteQuery = "DELETE FROM news WHERE id = $1";
+    client.query(deleteQuery, [id], (err) => {
       if (err) {
         console.error("❌ Ошибка при удалении новости:", err);
         return res.status(500).json({ error: "Ошибка при удалении новости" });
