@@ -1,7 +1,7 @@
 import express from "express";
 import axios from "axios";
 import cors from "cors";
-import pkg from "pg";
+import pkg from 'pg';
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import path from "path";
@@ -13,56 +13,80 @@ dotenv.config();
 // Получаем путь к текущему файлу и директории
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const { Pool } = pkg; // Извлекаем Pool из импортированного объекта
+const { Pool } = pkg; // Деструктурируем Pool из импорта
 
 const app = express();
-const db = new Pool(config.db);
+const db = new Pool(config.db); // Инициализация пула для работы с базой данных PostgreSQL
 
 // Настройки CORS
-app.use(cors({
-  origin: config.cors.origins,
-}));
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || config.cors.origins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS: " + origin));
+    }
+  },
+  credentials: true,
+};
 
-// Настройка для обработки JSON
-app.use(express.json());
+app.use(cors(corsOptions)); // Применяем CORS
+app.use(express.json()); // Обработка JSON данных
 
-db.connect((err) => {
-  if (err) {
-    console.error("❌ Ошибка подключения к базе данных PostgreSQL:", err);
-    process.exit(1); // Завершаем процесс, если не удалось подключиться
-  }
+// Проверка подключения к базе данных
+db.on("connect", () => {
   console.log("✅ Подключение к базе данных PostgreSQL успешно!");
 });
 
-// ✅ Настройки Яндекс Саджест
-const API_KEY = process.env.API_KEY;
-const SUGGEST_URL = "https://suggest-maps.yandex.ru/v1/suggest";
+db.on("error", (err) => {
+  console.error("❌ Ошибка подключения к базе данных PostgreSQL:", err);
+  process.exit(1); // Завершаем процесс, если не удалось подключиться
+});
 
-// ✅ Маршрут получения подсказок
-app.get("/api/suggest", async (req, res) => {
+// fetchSuggestions.js
+const fetchSuggestions = async (query, type) => {
+  try {
+    const url = `https://suggest-maps.yandex.ru/v1/suggest?apikey=${YANDEX_API_KEY}&text=${encodeURIComponent(query)}&lang=ru_RU&type=${type}`;
+
+    console.log("🌐 Запрос к Яндекс Саджесту:", url);
+
+    const response = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+
+    const results = response.data?.results;
+
+    if (!Array.isArray(results)) {
+      console.warn("⚠️ Пустой или некорректный ответ:", response.data);
+      return [];
+    }
+
+    const suggestions = results
+      .filter((item) => item.uri?.includes("country--russia"))
+      .map((item) => item.title?.text)
+      .filter(Boolean);
+
+    return [...new Set(suggestions)];
+  } catch (error) {
+    console.error("❌ Ошибка запроса:", error.response?.status, error.response?.data || error.message);
+    return [];
+  }
+};
+
+// suggest endpoint
+app.get("/suggest", async (req, res) => {
   const { query, type } = req.query;
 
   if (!query || !type) {
     return res.status(400).json({ error: "Необходимо указать параметры query и type" });
   }
 
-  try {
-    const params = {
-      apikey: config.apis.yandexApiKey,
-      text: query,
-      lang: "ru_RU",
-      types: type,
-    };
-    
-    const response = await axios.get("https://suggest-maps.yandex.ru/v1/suggest", { params });
-    
-    const suggestions = response.data.results.map(item => item.title.text);
-    res.json({ suggestions });
-  } catch (error) {
-    console.error("❌ Ошибка Яндекс API:", error.message);
-    res.status(500).json({ error: "Ошибка при запросе к Яндекс API" });
-  }
+  const suggestions = await fetchSuggestions(query, type);
+  res.json({ suggestions });
 });
+
 
 // Настройка SMTP для отправки email
 const transporter = nodemailer.createTransport({
@@ -735,6 +759,9 @@ app.get("/api/suggest-fio", async (req, res) => {
 const buildPath = path.resolve(__dirname, './dist');
 
 app.use(express.static(buildPath));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
