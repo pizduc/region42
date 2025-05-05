@@ -1,21 +1,9 @@
 import { useState, useEffect } from "react";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import axios from "axios";
 
 interface AddressAutocompleteProps {
   value: string;
@@ -32,75 +20,80 @@ export function AddressAutocomplete({
   placeholder,
   type,
   cityValue,
-  streetValue,
+  streetValue
 }: AddressAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value || "");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
-  const fetchSuggestions = async (query: string) => {
-    if (!query) {
-      setSuggestions([]);
-      return;
+  const fetchSuggestions = async (input: string) => {
+    if (!input) return setSuggestions([]);
+  
+    // Проверка на достаточные данные
+    if ((type === "house" && (!cityValue || !streetValue)) || (type === "street" && !cityValue)) {
+      return setSuggestions([]);
     }
-
+  
     try {
       setLoading(true);
-      setError(null);
-
-      const baseUrl = "https://best-yard.onrender.com/api";
-      const params: any = { query, type };
-
-      if (type === "street" && cityValue) params.locality = cityValue;
-      if (type === "house" && cityValue && streetValue) {
-        params.locality = cityValue;
-        params.street = streetValue;
-      }      
-
-      const response = await axios.get(`${baseUrl}/suggest`, { params });
-      const data = response.data;
-
-if (!Array.isArray(data.suggestions)) {
-  throw new Error("Неверный формат ответа от сервера");
-}
-
-let result: string[] = data.suggestions;
-
-
-      // Специальная обработка для домов — оставить только номер
+      setError(false);
+  
+      // Составляем единый текст запроса
+      let fullQuery = "Россия, ";
+      if (type === "locality") {
+        fullQuery += input;
+      } else if (type === "street") {
+        fullQuery += `${cityValue}, ${input}`;
+      } else if (type === "house") {
+        fullQuery += `${cityValue}, ${streetValue}, ${input}`;
+      }
+  
+      const params = new URLSearchParams({
+        query: fullQuery,
+        type,
+      });
+  
+      const response = await fetch(`https://best-yard.onrender.com/api/suggest?${params.toString()}`);
+      if (!response.ok) throw new Error("Ошибка запроса к серверу");
+  
+      const data = await response.json();
+      let filteredSuggestions: string[] = Array.from(new Set(data.suggestions || []));
+  
+      // Фильтрация номеров домов
       if (type === "house") {
-        result = result
+        filteredSuggestions = filteredSuggestions
           .map((s) => {
-            const match = (s as string).match(/(\d+\w*)$/);
+            const match = s.match(/(?:\d+[A-Za-zа-яА-Я]*)$/);
             return match ? match[0] : null;
           })
-          .filter((s): s is string => s !== null);
+          .filter((s): s is string => !!s);
+  
+        console.log("🏠 Фильтрованные дома:", filteredSuggestions);
       }
-
-      setSuggestions(Array.from(new Set(result)));
-    } catch (err: any) {
-      console.error("Ошибка получения данных:", err?.response?.data || err.message);
-      setError("Ошибка получения данных");
+  
+      setSuggestions(filteredSuggestions);
+    } catch (err) {
+      console.error("❌ Ошибка получения подсказок:", err);
+      setError(true);
       setSuggestions([]);
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   useEffect(() => {
     const timer = setTimeout(() => fetchSuggestions(inputValue), 300);
     return () => clearTimeout(timer);
   }, [inputValue, type, cityValue, streetValue]);
 
-  useEffect(() => {
-    setInputValue(value || "");
-  }, [value]);
+  useEffect(() => setInputValue(value || ""), [value]);
 
+  // Показ сообщений о загрузке/ошибке только один раз
   const renderEmptyMessage = () => {
     if (loading) return "Загрузка...";
-    if (error) return error;
+    if (error) return "Ошибка загрузки";
     if (suggestions.length === 0) return "Ничего не найдено";
     return null;
   };
@@ -108,12 +101,7 @@ let result: string[] = data.suggestions;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-        >
+        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
           {value || placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -126,7 +114,9 @@ let result: string[] = data.suggestions;
             onValueChange={setInputValue}
           />
           <CommandList>
-            {renderEmptyMessage() && <CommandEmpty>{renderEmptyMessage()}</CommandEmpty>}
+            {renderEmptyMessage() && (
+              <CommandEmpty>{renderEmptyMessage()}</CommandEmpty>
+            )}
             <CommandGroup>
               {suggestions.map((suggestion) => (
                 <CommandItem
@@ -139,9 +129,7 @@ let result: string[] = data.suggestions;
                   }}
                   className={cn("cursor-pointer", value === suggestion && "bg-gray-200")}
                 >
-                  <Check
-                    className={cn("mr-2 h-4 w-4", value === suggestion ? "opacity-100" : "opacity-0")}
-                  />
+                  <Check className={cn("mr-2 h-4 w-4", value === suggestion ? "opacity-100" : "opacity-0")} />
                   {suggestion}
                 </CommandItem>
               ))}
