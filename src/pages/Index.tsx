@@ -13,7 +13,7 @@ const Index = () => {
     setIsSpecialUser(localStorage.getItem("isSpecialUser") === "true");
 
     // Получаем новости с сервера
-    fetch("/api/news")
+    fetch("https://best-yard.onrender.com/api/news")
       .then((res) => res.json())
       .then((data) => setNews(data))
       .catch((error) => console.error("Ошибка загрузки новостей:", error));
