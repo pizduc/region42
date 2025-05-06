@@ -19,7 +19,7 @@ const News = () => {
 
   const fetchNews = async () => {
     try {
-      const response = await axios.get("http://localhost:3000/api/news");
+      const response = await axios.get("https://best-yard.onrender.com/api/news"); // Новый URL
       setNews(response.data);
     } catch (error) {
       console.error("Ошибка загрузки новостей:", error);
@@ -35,7 +35,7 @@ const News = () => {
 
     try {
       setLoading(true);
-      const response = await axios.post("http://localhost:3000/api/news", {
+      const response = await axios.post("https://best-yard.onrender.com/api/news", { // Новый URL
         title: newTitle,
         content: newContent,
         userId, // 🔥 Убедись, что он есть!
@@ -60,7 +60,7 @@ const News = () => {
     }
   
     try {
-      const response = await axios.delete(`http://localhost:3000/api/news/${newsId}?userId=${userId}`);
+      const response = await axios.delete(`https://best-yard.onrender.com/api/news/${newsId}?userId=${userId}`); // Новый URL
       if (response.data.success) {
         console.log("✅ Новость удалена");
         setNews(news.filter((item) => item.id !== newsId)); // Убираем удаленную новость из списка
