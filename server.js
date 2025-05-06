@@ -98,6 +98,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// API для подачи заявки
 app.post("/api/applications2", async (req, res) => {
   const { type, description, date, time, phone } = req.body;
 
@@ -108,7 +109,7 @@ app.post("/api/applications2", async (req, res) => {
   }
 
   const sql = `
-    INSERT INTO Applications (type, description, date, time, phone)
+    INSERT INTO Applications2 (type, description, date, time, phone)
     VALUES ($1, $2, $3, $4, $5) RETURNING id
   `;
   const params = [type, description, date, time, phone];
