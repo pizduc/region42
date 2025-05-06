@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { LogOut, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import axios from "axios";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -29,10 +28,14 @@ const Profile = () => {
       return;
     }
     try {
-      const res = await axios.get("http://localhost:3000/api/suggest-fio", {
-        params: { query },
-      });
-      setSuggestions(res.data.suggestions);
+      const params = new URLSearchParams({ query });
+      const response = await fetch(`https://best-yard.onrender.com/api/suggest-fio?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestions(data.suggestions);
+      } else {
+        console.error("Ошибка при получении подсказок:", response.statusText);
+      }
     } catch (err) {
       console.error("Ошибка при получении подсказок:", err);
     }
@@ -47,10 +50,10 @@ const Profile = () => {
 
   useEffect(() => {
     if (!userId) return;
-    axios
-      .get(`http://localhost:3000/api/user/profile/${userId}`)
-      .then((res) => {
-        const { last_name, first_name, middle_name, phone, email } = res.data;
+    fetch(`https://best-yard.onrender.com/api/user/profile/${userId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const { last_name, first_name, middle_name, phone, email } = data;
         setLastName(last_name || "");
         setFirstName(first_name || "");
         setMiddleName(middle_name || "");
@@ -80,7 +83,7 @@ const Profile = () => {
       email,
     };
 
-    fetch("http://localhost:3000/api/user/profile", {
+    fetch("https://best-yard.onrender.com/api/user/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(userInfo),
@@ -113,15 +116,15 @@ const Profile = () => {
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-  
+
     // Убираем все символы, кроме цифр
     value = value.replace(/[^\d]/g, '');
-  
+
     // Добавляем префикс +7, если его нет
     if (!value.startsWith("7")) {
       value = "7" + value;
     }
-  
+
     // Форматируем номер телефона в стиль +7 (___) ___-__-__
     if (value.length <= 1) {
       value = "+7";
@@ -134,9 +137,9 @@ const Profile = () => {
     } else if (value.length <= 11) {
       value = "+7 (" + value.slice(1, 4) + ") " + value.slice(4, 7) + "-" + value.slice(7, 9) + "-" + value.slice(9, 11);
     }
-  
+
     setPhone(value);
-  };  
+  };
 
   return (
     <div className="space-y-6">
