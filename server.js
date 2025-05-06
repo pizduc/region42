@@ -677,7 +677,7 @@ app.get('/api/user/profile/:userId', async (req, res) => {
   const query = 'SELECT * FROM user_profiles WHERE user_id = $1';
 
   try {
-    const { rows } = await pool.query(query, [userId]);
+    const { rows } = await db.query(query, [userId]);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Профиль не найден' });
     }
@@ -701,7 +701,7 @@ app.post('/api/user/profile', async (req, res) => {
 
   try {
     // Удаляем старые данные
-    await pool.query(deleteQuery, [userId]);
+    await db.query(deleteQuery, [userId]);
 
     const insertQuery = `
       INSERT INTO user_profiles (user_id, last_name, first_name, middle_name, phone, email)
@@ -709,7 +709,7 @@ app.post('/api/user/profile', async (req, res) => {
     `;
 
     // Добавляем новые данные
-    await pool.query(insertQuery, [userId, lastName, firstName, middleName, phone, email]);
+    await db.query(insertQuery, [userId, lastName, firstName, middleName, phone, email]);
 
     res.json({ message: 'Данные профиля сохранены' });
   } catch (err) {
