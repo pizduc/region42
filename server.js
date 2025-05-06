@@ -574,20 +574,34 @@ app.get("/api/paid-months", async (req, res) => {
   }
 
   try {
-    const query = `
+    // Извлекаем все месяцы с показаниями счетчиков
+    const readingsQuery = `
+      SELECT DISTINCT to_char(reading_date, 'YYYY-MM') AS reading_month
+      FROM meter_readings
+      WHERE user_id = $1
+      ORDER BY reading_month DESC
+    `;
+    const { rows: readingsRows } = await db.query(readingsQuery, [userId]);
+    const readingMonths = readingsRows.map(row => row.reading_month);
+
+    // Извлекаем все месяцы, за которые была произведена оплата
+    const paidQuery = `
       SELECT DISTINCT to_char(reading_date, 'YYYY-MM') AS paid_month
       FROM paid_services
       WHERE user_id = $1
       ORDER BY paid_month DESC
     `;
-    const { rows } = await db.query(query, [userId]);
-    const paidMonths = rows.map(row => row.paid_month);
+    const { rows: paidRows } = await db.query(paidQuery, [userId]);
+    const paidMonths = paidRows.map(row => row.paid_month);
 
-    if (paidMonths.length === 0) {
-      return res.status(404).json({ error: "Не найдены оплаченные месяцы" });
+    // Находим месяцы, за которые нет оплаты
+    const unpaidMonths = readingMonths.filter(month => !paidMonths.includes(month));
+
+    if (unpaidMonths.length === 0) {
+      return res.json({ message: "Все месяцы оплачены" });
     }
 
-    res.json({ paidMonths });
+    res.json({ unpaidMonths });
   } catch (err) {
     console.error("❌ Ошибка при извлечении месяцев:", err);
     res.status(500).json({ error: "Ошибка сервера при извлечении данных" });
