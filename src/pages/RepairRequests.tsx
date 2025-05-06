@@ -78,7 +78,7 @@ const RepairRequests = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/applications", {
+      const response = await fetch("https://best-yard.onrender.com/api/applications2", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
