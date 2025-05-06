@@ -320,28 +320,24 @@ app.delete("/api/news/:id", (req, res) => {
 });
 
 // ✅ Получение последних показаний
-app.get("/api/meter-readings", (req, res) => {
+app.get("/api/meter-readings", async (req, res) => {
   const { userId } = req.query;
 
   if (!userId) {
     return res.status(400).json({ error: "Не указан userId" });
   }
 
-  // Запрос на получение двух последних показаний за разные месяцы
   const query = `
     SELECT hot_water, cold_water, electricity, reading_date
     FROM meter_readings
-    WHERE user_id = ?
+    WHERE user_id = $1
     ORDER BY reading_date DESC
   `;
 
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error("❌ Ошибка при получении показаний:", err);
-      return res.status(500).json({ error: "Ошибка сервера" });
-    }
+  try {
+    const { rows } = await db.query(query, [userId]);
 
-    if (results.length === 0) {
+    if (rows.length === 0) {
       return res.json({
         currentReadings: { hot_water: 0, cold_water: 0, electricity: 0 },
         previousReadings: { hot_water: 0, cold_water: 0, electricity: 0 },
@@ -349,112 +345,76 @@ app.get("/api/meter-readings", (req, res) => {
       });
     }
 
-    // Группируем показания по месяцам
-    const groupedReadings = {};
-    results.forEach((reading) => {
-      const monthKey = reading.reading_date.toISOString().slice(0, 7); // Формат YYYY-MM
-      if (!groupedReadings[monthKey]) {
-        groupedReadings[monthKey] = reading;
-      }
-    });
+    const grouped = {};
+    for (const row of rows) {
+      const key = row.reading_date.toISOString().slice(0, 7); // YYYY-MM
+      if (!grouped[key]) grouped[key] = row;
+    }
 
-    // Берем два последних месяца
-    const sortedMonths = Object.keys(groupedReadings).sort().reverse();
-    const currentMonthKey = sortedMonths[0];
-    const previousMonthKey = sortedMonths[1] || null;
+    const sortedMonths = Object.keys(grouped).sort().reverse();
+    const current = grouped[sortedMonths[0]] || { hot_water: 0, cold_water: 0, electricity: 0 };
+    const previous = grouped[sortedMonths[1]] || { hot_water: 0, cold_water: 0, electricity: 0 };
 
-    const currentReadings = groupedReadings[currentMonthKey] || { hot_water: 0, cold_water: 0, electricity: 0 };
-    const previousReadings = groupedReadings[previousMonthKey] || { hot_water: 0, cold_water: 0, electricity: 0 };
-
-    // Вычисляем разницу
     const difference = {
-      hot_water: currentReadings.hot_water - previousReadings.hot_water,
-      cold_water: currentReadings.cold_water - previousReadings.cold_water,
-      electricity: currentReadings.electricity - previousReadings.electricity
+      hot_water: current.hot_water - previous.hot_water,
+      cold_water: current.cold_water - previous.cold_water,
+      electricity: current.electricity - previous.electricity
     };
 
-    res.json({ currentReadings, previousReadings, difference });
-  });
+    res.json({ currentReadings: current, previousReadings: previous, difference });
+  } catch (err) {
+    console.error("❌ Ошибка при получении показаний:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
 });
 
 // ✅ Добавление или обновление показаний
-app.post("/api/meter-readings", (req, res) => {
+app.post("/api/meter-readings", async (req, res) => {
   const { userId, hotWater, coldWater, electricity, readingDate } = req.body;
 
   if (!userId || !readingDate) {
     return res.status(400).json({ error: "Не указан userId или дата показаний" });
   }
 
-  // Преобразуем дату в формат YYYY-MM для сравнения только по месяцу
-  const formattedDate = readingDate.substring(0, 7); // Например: "2025-03"
+  const formattedDate = readingDate.substring(0, 7); // YYYY-MM
 
-  // 1️⃣ Получаем последние 2 записи
-  const checkQuery = `
-    SELECT id, reading_date FROM meter_readings
-    WHERE user_id = ?
-    ORDER BY reading_date DESC
-  `;
+  try {
+    const { rows } = await db.query(`
+      SELECT id, reading_date
+      FROM meter_readings
+      WHERE user_id = $1
+      ORDER BY reading_date DESC
+    `, [userId]);
 
-  db.query(checkQuery, [userId], (err, results) => {
-    if (err) {
-      console.error("❌ Ошибка при проверке существующих показаний:", err);
-      return res.status(500).json({ error: "Ошибка при проверке существующих показаний" });
+    // Удаляем самые старые, если больше двух
+    if (rows.length >= 2) {
+      const oldestId = rows[rows.length - 1].id;
+      await db.query(`DELETE FROM meter_readings WHERE id = $1`, [oldestId]);
+      console.log("🗑 Старые показания удалены");
     }
 
-    // Удаляем старые показания, если их больше 2
-    if (results.length >= 2) {
-      const oldestId = results[results.length - 1].id;
-      const deleteQuery = `DELETE FROM meter_readings WHERE id = ?`;
+    const existing = rows.find(r => r.reading_date.toISOString().substring(0, 7) === formattedDate);
 
-      db.query(deleteQuery, [oldestId], (err) => {
-        if (err) {
-          console.error("❌ Ошибка при удалении старых показаний:", err);
-          return res.status(500).json({ error: "Ошибка при удалении старых показаний" });
-        }
-        console.log("🗑 Старые показания удалены");
-      });
-    }
-
-    // Проверяем, есть ли уже запись за этот месяц
-    const existingRecord = results.find((r) => 
-      new Date(r.reading_date).toISOString().substring(0, 7) === formattedDate
-    );    
-
-    if (existingRecord) {
-      // Если запись за месяц уже есть, обновляем её
-      const updateQuery = `
+    if (existing) {
+      await db.query(`
         UPDATE meter_readings
-        SET hot_water = ?, cold_water = ?, electricity = ?, reading_date = ?
-        WHERE id = ?
-      `;
+        SET hot_water = $1, cold_water = $2, electricity = $3, reading_date = $4
+        WHERE id = $5
+      `, [hotWater, coldWater, electricity, readingDate, existing.id]);
 
-      const updateValues = [hotWater, coldWater, electricity, readingDate, existingRecord.id];
-
-      db.query(updateQuery, updateValues, (err) => {
-        if (err) {
-          console.error("❌ Ошибка при обновлении показаний:", err);
-          return res.status(500).json({ error: "Ошибка при обновлении показаний" });
-        }
-        
-        res.json({ success: true });
-      });
+      return res.json({ success: true, message: "Показания обновлены" });
     } else {
-      // Если записи за месяц нет, добавляем новую
-      const insertQuery = `
+      await db.query(`
         INSERT INTO meter_readings (user_id, hot_water, cold_water, electricity, reading_date)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-      const insertValues = [userId, hotWater, coldWater, electricity, readingDate];
+        VALUES ($1, $2, $3, $4, $5)
+      `, [userId, hotWater, coldWater, electricity, readingDate]);
 
-      db.query(insertQuery, insertValues, (err) => {
-        if (err) {
-          console.error("❌ Ошибка при добавлении показаний:", err);
-          return res.status(500).json({ error: "Ошибка при добавлении показаний" });
-        }
-        res.json({ success: true });
-      });
+      return res.json({ success: true, message: "Показания добавлены" });
     }
-  });
+  } catch (err) {
+    console.error("❌ Ошибка при сохранении показаний:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
 });
 
 app.get("/api/calculate-payment", async (req, res) => {
