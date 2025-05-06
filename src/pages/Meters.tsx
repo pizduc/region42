@@ -52,7 +52,7 @@ const Meters = () => {
 
     const loadLatestReadings = async () => {
       try {
-        const response = await fetch(`http://localhost:3000/api/meter-readings?userId=${storedUserId}`);
+        const response = await fetch(`https://best-yard.onrender.com/api/meter-readings?userId=${storedUserId}`);
 
         if (!response.ok) {
           throw new Error(`Ошибка сервера: ${response.status}`);
@@ -150,13 +150,13 @@ const Meters = () => {
     try {
       setIsLoading(true);
   
-      const response = await fetch("http://localhost:3000/api/meter-readings", {
+      const response = await fetch("https://best-yard.onrender.com/api/meter-readings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-      });
+      });      
   
       const data = await response.json();
   
