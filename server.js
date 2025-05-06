@@ -98,8 +98,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// API для подачи заявки
-app.post("/api/applications", (req, res) => {
+app.post("/api/applications2", async (req, res) => {
   const { type, description, date, time, phone } = req.body;
 
   console.log("Полученные данные заявки:", req.body);
@@ -108,19 +107,21 @@ app.post("/api/applications", (req, res) => {
     return res.status(400).json({ message: "Описание проблемы обязательно" });
   }
 
-  const sql = "INSERT INTO Applications (type, description, date, time, phone) VALUES (?, ?, ?, ?, ?)";
+  const sql = `
+    INSERT INTO Applications (type, description, date, time, phone)
+    VALUES ($1, $2, $3, $4, $5) RETURNING id
+  `;
   const params = [type, description, date, time, phone];
 
   console.log("Запрос к базе данных:", sql);
   console.log("Параметры запроса:", params);
 
-  db.query(sql, params, (err, result) => {
-    if (err) {
-      console.error("❌ Ошибка записи в базу данных:", err);
-      return res.status(500).json({ error: "Ошибка сервера. Не удалось сохранить заявку." });
-    }
+  try {
+    // Выполняем запрос к базе данных PostgreSQL
+    const result = await db.query(sql, params);
+    const applicationId = result.rows[0].id;
 
-    console.log("✅ Заявка успешно записана в базу данных");
+    console.log("✅ Заявка успешно записана в базу данных, ID заявки:", applicationId);
     res.json({ message: "Заявка принята!" });
 
     const notifyEmail = process.env.NOTIFY_EMAIL;
@@ -135,7 +136,7 @@ app.post("/api/applications", (req, res) => {
       electrical: "Электрика",
       construction: "Строительные работы",
       other: "Другое",
-    };    
+    };
 
     const translatedType = typeLabels[type] || type;
 
@@ -161,7 +162,10 @@ app.post("/api/applications", (req, res) => {
       }
       console.log("📩 Email отправлен:", info.response);
     });
-  });
+  } catch (err) {
+    console.error("❌ Ошибка записи в базу данных:", err);
+    return res.status(500).json({ error: "Ошибка сервера. Не удалось сохранить заявку." });
+  }
 });
 
 app.post("/api/login", async (req, res) => {
