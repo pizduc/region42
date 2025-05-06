@@ -417,6 +417,55 @@ app.post("/api/meter-readings", async (req, res) => {
   }
 });
 
+// ✅ Добавление или обновление показаний
+app.post("/api/meter-readings", async (req, res) => {
+  const { userId, hotWater, coldWater, electricity, readingDate } = req.body;
+
+  if (!userId || !readingDate) {
+    return res.status(400).json({ error: "Не указан userId или дата показаний" });
+  }
+
+  const formattedDate = readingDate.substring(0, 7); // YYYY-MM
+
+  try {
+    const { rows } = await db.query(`
+      SELECT id, reading_date
+      FROM meter_readings
+      WHERE user_id = $1
+      ORDER BY reading_date DESC
+    `, [userId]);
+
+    // Удаляем самые старые, если больше двух
+    if (rows.length >= 2) {
+      const oldestId = rows[rows.length - 1].id;
+      await db.query(`DELETE FROM meter_readings WHERE id = $1`, [oldestId]);
+      console.log("🗑 Старые показания удалены");
+    }
+
+    const existing = rows.find(r => r.reading_date.toISOString().substring(0, 7) === formattedDate);
+
+    if (existing) {
+      await db.query(`
+        UPDATE meter_readings
+        SET hot_water = $1, cold_water = $2, electricity = $3, reading_date = $4
+        WHERE id = $5
+      `, [hotWater, coldWater, electricity, readingDate, existing.id]);
+
+      return res.json({ success: true, message: "Показания обновлены" });
+    } else {
+      await db.query(`
+        INSERT INTO meter_readings (user_id, hot_water, cold_water, electricity, reading_date)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [userId, hotWater, coldWater, electricity, readingDate]);
+
+      return res.json({ success: true, message: "Показания добавлены" });
+    }
+  } catch (err) {
+    console.error("❌ Ошибка при сохранении показаний:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
 app.get("/api/calculate-payment", async (req, res) => {
   const { userId, selectedServices } = req.query;
 
@@ -438,196 +487,159 @@ app.get("/api/calculate-payment", async (req, res) => {
   if (selectedServicesArray.includes("heating")) totalAmount += tariffs.heating;
   if (selectedServicesArray.includes("maintenance")) totalAmount += tariffs.maintenance;
 
-  // Получаем список оплаченных месяцев (с использованием reading_date)
-  const paidMonthsQuery = `
-    SELECT reading_date FROM paid_services WHERE user_id = ?
-  `;
+  try {
+    const paidRes = await db.query(
+      `SELECT reading_date FROM paid_services WHERE user_id = $1`,
+      [userId]
+    );
+    const paidMonths = paidRes.rows.map(row => row.reading_date.toISOString().slice(0, 7));
 
-  db.query(paidMonthsQuery, [userId], (err, paidResults) => {
-    if (err) {
-      console.error("Ошибка при получении оплаченных месяцев:", err);
-      return res.status(500).json({ error: "Ошибка сервера" });
-    }
+    const readingsRes = await db.query(
+      `SELECT hot_water, cold_water, electricity, reading_date
+       FROM meter_readings
+       WHERE user_id = $1
+       ORDER BY reading_date DESC
+       LIMIT 2`,
+      [userId]
+    );
 
-    const paidMonths = paidResults.map(row => row.reading_date);
+    const results = readingsRes.rows;
 
-    // Получаем последние два показания счетчиков
-    const readingsQuery = `
-      SELECT hot_water, cold_water, electricity, reading_date
-      FROM meter_readings
-      WHERE user_id = ?
-      ORDER BY reading_date DESC
-      LIMIT 2
-    `;
-
-    db.query(readingsQuery, [userId], (err, results) => {
-      if (err) {
-        console.error("Ошибка при получении данных о показаниях:", err);
-        return res.status(500).json({ error: "Ошибка при получении показаний" });
-      }
-
-      if (results.length === 0) {
-        return res.json({
-          totalAmount: totalAmount.toFixed(2),
-          paidMonths,
-          warning: "Нет данных о предыдущих показаниях"
-        });
-      }
-
-      const current = results[0];
-      const previous = results[1] || { hot_water: 0, cold_water: 0, electricity: 0 };
-
-      const consumption = {
-        hot_water: Math.max(parseFloat(current.hot_water || 0) - parseFloat(previous.hot_water || 0), 0),
-        cold_water: Math.max(parseFloat(current.cold_water || 0) - parseFloat(previous.cold_water || 0), 0),
-        electricity: Math.max(parseFloat(current.electricity || 0) - parseFloat(previous.electricity || 0), 0)
-      };
-
-      if (selectedServicesArray.includes("hot_water")) {
-        totalAmount += isNaN(consumption.hot_water) ? 0 : consumption.hot_water * tariffs.hot_water;
-      }
-      if (selectedServicesArray.includes("cold_water")) {
-        totalAmount += isNaN(consumption.cold_water) ? 0 : consumption.cold_water * tariffs.cold_water;
-      }
-      if (selectedServicesArray.includes("electricity")) {
-        totalAmount += isNaN(consumption.electricity) ? 0 : consumption.electricity * tariffs.electricity;
-      }
-
-      res.json({
+    if (results.length === 0) {
+      return res.json({
         totalAmount: totalAmount.toFixed(2),
         paidMonths,
-        details: {
-          heating: selectedServicesArray.includes("heating") ? tariffs.heating : 0,
-          maintenance: selectedServicesArray.includes("maintenance") ? tariffs.maintenance : 0,
-          hot_water: selectedServicesArray.includes("hot_water") ? (consumption.hot_water * tariffs.hot_water) : 0,
-          cold_water: selectedServicesArray.includes("cold_water") ? (consumption.cold_water * tariffs.cold_water) : 0,
-          electricity: selectedServicesArray.includes("electricity") ? (consumption.electricity * tariffs.electricity) : 0
-        }
+        warning: "Нет данных о предыдущих показаниях"
       });
+    }
+
+    const current = results[0];
+    const previous = results[1] || { hot_water: 0, cold_water: 0, electricity: 0 };
+
+    const consumption = {
+      hot_water: Math.max(parseFloat(current.hot_water) - parseFloat(previous.hot_water), 0),
+      cold_water: Math.max(parseFloat(current.cold_water) - parseFloat(previous.cold_water), 0),
+      electricity: Math.max(parseFloat(current.electricity) - parseFloat(previous.electricity), 0)
+    };
+
+    if (selectedServicesArray.includes("hot_water")) totalAmount += consumption.hot_water * tariffs.hot_water;
+    if (selectedServicesArray.includes("cold_water")) totalAmount += consumption.cold_water * tariffs.cold_water;
+    if (selectedServicesArray.includes("electricity")) totalAmount += consumption.electricity * tariffs.electricity;
+
+    res.json({
+      totalAmount: totalAmount.toFixed(2),
+      paidMonths,
+      details: {
+        heating: selectedServicesArray.includes("heating") ? tariffs.heating : 0,
+        maintenance: selectedServicesArray.includes("maintenance") ? tariffs.maintenance : 0,
+        hot_water: selectedServicesArray.includes("hot_water") ? consumption.hot_water * tariffs.hot_water : 0,
+        cold_water: selectedServicesArray.includes("cold_water") ? consumption.cold_water * tariffs.cold_water : 0,
+        electricity: selectedServicesArray.includes("electricity") ? consumption.electricity * tariffs.electricity : 0
+      }
     });
-  });
+  } catch (err) {
+    console.error("❌ Ошибка при расчете платежа:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
 });
 
-app.post("/api/payments", (req, res) => {
+app.post("/api/payments", async (req, res) => {
   const { userId, readingDate, services, totalAmount, paymentMethod } = req.body;
 
   if (!userId || !readingDate || !services || services.length === 0 || !totalAmount || !paymentMethod) {
     return res.status(400).json({ error: "Некорректные данные" });
   }
 
-  // Преобразуем строку в дату и получаем месяц (например, 3 для марта)
-  const date = new Date(readingDate);  // readingDate будет вида '2025-03-17'
-  const monthNumber = date.getMonth() + 1;  // getMonth() возвращает месяц от 0 до 11, поэтому прибавляем 1
+  const date = new Date(readingDate);
+  const monthStr = date.toISOString().slice(0, 7); // 'YYYY-MM'
 
-  const checkQuery = `
-    SELECT reading_date FROM paid_services
-    WHERE user_id = ? AND MONTH(reading_date) = ?
-  `;
+  try {
+    const checkQuery = `
+      SELECT 1 FROM paid_services 
+      WHERE user_id = $1 AND to_char(reading_date, 'YYYY-MM') = $2
+    `;
+    const checkRes = await db.query(checkQuery, [userId, monthStr]);
 
-  db.query(checkQuery, [userId, monthNumber], (err, results) => {
-    if (err) {
-      console.error("Ошибка при проверке оплаченных месяцев:", err);
-      return res.status(500).json({ error: "Ошибка сервера при проверке оплат" });
-    }
-
-    if (results.length > 0) {
+    if (checkRes.rows.length > 0) {
       return res.status(400).json({ error: "Оплата за этот месяц уже произведена" });
     }
 
-    // Если оплаты не было, добавляем в БД
     const insertQuery = `
       INSERT INTO paid_services (user_id, reading_date, services, sum, payment_method)
-      VALUES (?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5)
     `;
+    await db.query(insertQuery, [userId, readingDate, JSON.stringify(services), totalAmount, paymentMethod]);
 
-    db.query(insertQuery, [userId, readingDate, JSON.stringify(services), totalAmount, paymentMethod], (err) => {
-      if (err) {
-        console.error("Ошибка при записи оплаты в БД:", err);
-        return res.status(500).json({ error: "Ошибка сервера при сохранении оплаты" });
-      }
-
-      res.json({ success: true, message: "Оплата успешно сохранена" });
-    });
-  });
+    res.json({ success: true, message: "Оплата успешно сохранена" });
+  } catch (err) {
+    console.error("❌ Ошибка при записи оплаты:", err);
+    res.status(500).json({ error: "Ошибка сервера при сохранении оплаты" });
+  }
 });
 
-app.post("/api/save-payment", (req, res) => {
+app.post("/api/save-payment", async (req, res) => {
   const { userId, selectedMonth, selectedServices, totalAmount, paymentMethod } = req.body;
 
-  // Проверка на корректность данных
   if (!userId || !selectedMonth || !selectedServices || totalAmount === undefined || !paymentMethod) {
     return res.status(400).json({ error: "Некорректные данные" });
   }
 
-  // Получаем текущую дату для 'reading_date' в формате 'YYYY-MM-DD HH:MM:SS'
   const readingDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const currentDate = readingDate;
 
-  // Примерный запрос для вставки данных в таблицу 'paid_services'
-  const insertQuery = `
-    INSERT INTO paid_services 
-    (user_id, cold_water, hot_water, electricity, reading_date, sum, created_at) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  // Используем данные, полученные из расчетов платежа
-  const coldWaterAmount = selectedServices.includes("cold_water") ? totalAmount * 0.2 : 0; // Примерная логика для расчета стоимости
+  const coldWaterAmount = selectedServices.includes("cold_water") ? totalAmount * 0.2 : 0;
   const hotWaterAmount = selectedServices.includes("hot_water") ? totalAmount * 0.3 : 0;
   const electricityAmount = selectedServices.includes("electricity") ? totalAmount * 0.5 : 0;
 
-  // Преобразуем текущую дату для 'created_at' в формат 'YYYY-MM-DD HH:MM:SS'
-  const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' '); // Избавляемся от суффикса 'Z' и T
+  try {
+    const insertQuery = `
+      INSERT INTO paid_services 
+      (user_id, cold_water, hot_water, electricity, reading_date, sum, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `;
+    await db.query(insertQuery, [
+      userId,
+      coldWaterAmount,
+      hotWaterAmount,
+      electricityAmount,
+      readingDate,
+      totalAmount,
+      currentDate
+    ]);
 
-  db.query(insertQuery, [
-    userId,
-    coldWaterAmount,
-    hotWaterAmount,
-    electricityAmount,
-    readingDate,
-    totalAmount,
-    currentDate
-  ], (err) => {
-    if (err) {
-      console.error("Ошибка при сохранении данных в БД:", err);
-      return res.status(500).json({ error: "Ошибка сервера при сохранении данных оплаты" });
-    }
-
-    // Отправка ответа о успешной операции
     res.json({ success: true });
-  });
+  } catch (err) {
+    console.error("❌ Ошибка при сохранении данных в БД:", err);
+    res.status(500).json({ error: "Ошибка сервера при сохранении данных оплаты" });
+  }
 });
 
-app.get("/api/paid-months", (req, res) => {
+app.get("/api/paid-months", async (req, res) => {
   const { userId } = req.query;
 
-  // Проверка на наличие userId
   if (!userId) {
     return res.status(400).json({ error: "Отсутствует идентификатор пользователя" });
   }
 
-  // Запрос для получения уникальных оплаченных месяцев для данного пользователя
-  const query = `
-    SELECT DISTINCT DATE_FORMAT(reading_date, '%Y-%m') AS paid_month
-    FROM paid_services
-    WHERE user_id = ?
-    ORDER BY paid_month DESC;
-  `;
+  try {
+    const query = `
+      SELECT DISTINCT to_char(reading_date, 'YYYY-MM') AS paid_month
+      FROM paid_services
+      WHERE user_id = $1
+      ORDER BY paid_month DESC
+    `;
+    const { rows } = await db.query(query, [userId]);
+    const paidMonths = rows.map(row => row.paid_month);
 
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error("Ошибка при извлечении данных о месяцах:", err);
-      return res.status(500).json({ error: "Ошибка сервера при извлечении данных" });
+    if (paidMonths.length === 0) {
+      return res.status(404).json({ error: "Не найдены оплаченные месяцы" });
     }
 
-    // Если данные найдены
-    if (results.length > 0) {
-      // Возвращаем список оплаченных месяцев
-      const paidMonths = results.map(row => row.paid_month);
-      return res.json({ paidMonths });
-    }
-
-    // Если нет данных о платежах
-    res.status(404).json({ error: "Не найдены оплаченные месяцы для данного пользователя" });
-  });
+    res.json({ paidMonths });
+  } catch (err) {
+    console.error("❌ Ошибка при извлечении месяцев:", err);
+    res.status(500).json({ error: "Ошибка сервера при извлечении данных" });
+  }
 });
 
 // Получение данных профиля
