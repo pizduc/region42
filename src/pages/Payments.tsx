@@ -77,7 +77,7 @@ const Payments = () => {
     }
 
     try {
-      const response = await fetch(`/api/calculate-payment?userId=${userId}&selectedServices=${selectedServices.join(",")}`);
+      const response = await fetch(`https://best-yard.onrender.com/api/calculate-payment?userId=${userId}&selectedServices=${selectedServices.join(",")}`);
       const data = await response.json();
 
       if (data.error) {
@@ -137,9 +137,9 @@ const Payments = () => {
         });
         return;
       }
-  
+
       try {
-        const response = await fetch(`/api/paid-months?userId=${userId}`);
+        const response = await fetch(`https://best-yard.onrender.com/api/paid-months?userId=${userId}`);
         const data = await response.json();
         setPaidMonths(data.paidMonths || []);
       } catch (error) {
@@ -151,7 +151,7 @@ const Payments = () => {
         });
       }
     };
-  
+
     fetchPaidMonths();
   }, []);  
 
@@ -168,7 +168,7 @@ const Payments = () => {
       });
       return;
     }
-  
+
     const userId = localStorage.getItem('userId');
     if (!userId) {
       toast({
@@ -178,7 +178,7 @@ const Payments = () => {
       });
       return;
     }
-  
+
     const paymentData = {
       userId,
       selectedMonth,
@@ -186,18 +186,18 @@ const Payments = () => {
       totalAmount,
       paymentMethod: selectedPaymentMethod,
     };
-  
+
     try {
-      const response = await fetch("/api/save-payment", {
+      const response = await fetch("https://best-yard.onrender.com/api/save-payment", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(paymentData),
       });
-  
+
       const data = await response.json();
-  
+
       if (data.success) {
         toast({
           title: "Оплата успешно сохранена!",
@@ -220,7 +220,7 @@ const Payments = () => {
         variant: "destructive",
       });
     }
-  };  
+  };
 
   return (
     <div className="space-y-6">
