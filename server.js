@@ -746,42 +746,61 @@ app.post('/api/user/register', async (req, res) => {
     });
   }
 
-  // Генерация уникального user_id (можно использовать UUID)
-  const userId = Date.now(); // Пример, лучше использовать UUID для уникальности
+  const userId = Date.now(); // Пример генерации user_id (лучше UUID)
+  const createdAt = moment().format('YYYY-MM-DD HH:mm:ss');
 
-  const query = `
-    INSERT INTO users (
-      login_type, contract_number, city, street, house, apartment, account_number, created_at, user_id, is_special_user
-    ) VALUES (
-      'address', $1, $2, $3, $4, $5, $6, $7, $8, false
-    ) RETURNING user_id
-  `;
-
-  const values = [
-    contract,
-    city,
-    street,
-    house,
-    apartment || null, // Если не указана квартира, ставим null
-    accountNumber,
-    moment().format('YYYY-MM-DD HH:mm:ss'), // Текущая дата для created_at
-    userId,
-  ];
+  const client = await db.connect();
 
   try {
-    // Вставляем данные пользователя в таблицу
-    const result = await db.query(query, values);
+    await client.query('BEGIN');
 
-    // Возвращаем ответ с успешно созданным user_id
+    const insertUserQuery = `
+      INSERT INTO users (
+        login_type, contract_number, city, street, house, apartment, account_number, created_at, user_id, is_special_user
+      ) VALUES (
+        'address', $1, $2, $3, $4, $5, $6, $7, $8, false
+      )
+    `;
+
+    const userValues = [
+      contract,
+      city,
+      street,
+      house,
+      apartment || null,
+      accountNumber,
+      createdAt,
+      userId,
+    ];
+
+    await client.query(insertUserQuery, userValues);
+
+    const insertProfileQuery = `
+      INSERT INTO user_profiles (
+        user_id, created_at
+      ) VALUES (
+        $1, $2
+      )
+    `;
+
+    const profileValues = [userId, createdAt];
+
+    await client.query(insertProfileQuery, profileValues);
+
+    await client.query('COMMIT');
+
     res.status(201).json({
       message: "Пользователь успешно зарегистрирован",
-      userId: result.rows[0].user_id,
+      userId,
     });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Ошибка при регистрации пользователя:', err);
     res.status(500).json({
       error: "Ошибка при регистрации, попробуйте позже.",
     });
+  } finally {
+    client.release();
   }
 });
 
