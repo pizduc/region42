@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import path from "path";
 import { fileURLToPath } from "url";
 import config from "./config.js"; // Подключаем конфиг
+import { v4 as uuidv4 } from 'uuid'; // Импортируем функцию для генерации UUID
 
 dotenv.config();
 
@@ -613,28 +614,36 @@ app.get("/api/paid-months", async (req, res) => {
   }
 });
 
-// Получение данных профиля
-app.get('/api/user/profile/:userId', async (req, res) => {
-  const userId = req.params.userId;
+// Получение данных пользователя по userId
+app.get("/api/user/addresses/:userId", async (req, res) => {
+  const { userId } = req.params;
 
-  const query = 'SELECT * FROM user_profiles WHERE user_id = $1';
+  if (!userId) {
+    return res.status(400).json({ error: "userId обязателен" });
+  }
 
   try {
-    const { rows } = await db.query(query, [userId]);
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Профиль не найден' });
+    const result = await db.query(
+      `SELECT city, street, house, apartment, contract_number, account_number
+       FROM users
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Адреса не найдены" });
     }
-    res.json(rows[0]);
+
+    res.json(result.rows);
   } catch (err) {
-    console.error('Ошибка при получении профиля:', err);
-    res.status(500).json({ error: 'Ошибка при получении профиля' });
+    console.error("Ошибка при получении адресов:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
   }
 });
 
-// Сохранение или обновление данных профиля (POST)
 app.post('/api/user/profile', async (req, res) => {
   console.log('Запрос на /api/user/profile:', req.body);
-  const { userId, lastName, firstName, middleName, phone, email } = req.body;
+  const { userId, lastName, firstName, middleName, phone, email, isEmailVerified } = req.body;
 
   if (!userId) {
     return res.status(400).json({ error: 'userId обязателен' });
@@ -647,17 +656,50 @@ app.post('/api/user/profile', async (req, res) => {
     await db.query(deleteQuery, [userId]);
 
     const insertQuery = `
-      INSERT INTO user_profiles (user_id, last_name, first_name, middle_name, phone, email)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO user_profiles (user_id, last_name, first_name, middle_name, phone, email, email_verified)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `;
 
     // Добавляем новые данные
-    await db.query(insertQuery, [userId, lastName, firstName, middleName, phone, email]);
+    await db.query(insertQuery, [userId, lastName, firstName, middleName, phone, email, isEmailVerified || false]);
 
     res.json({ message: 'Данные профиля сохранены' });
   } catch (err) {
     console.error('Ошибка при сохранении профиля:', err);
     res.status(500).json({ error: 'Ошибка при сохранении профиля' });
+  }
+});
+
+// Получение данных профиля по userId
+app.get("/api/user/profile/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ error: "userId обязателен" });
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT last_name, first_name, middle_name, phone, email, email_verified, 
+              CASE WHEN (last_name IS NOT NULL AND first_name IS NOT NULL AND 
+                        middle_name IS NOT NULL AND phone IS NOT NULL AND 
+                        email IS NOT NULL AND email_verified = TRUE) 
+                   THEN TRUE 
+                   ELSE FALSE 
+              END as is_profile_complete
+       FROM user_profiles
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Профиль не найден" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Ошибка при получении профиля:", err);
+    res.status(500).json({ error: "Ошибка при получении профиля" });
   }
 });
 
@@ -689,6 +731,156 @@ app.get("/api/suggest-fio", async (req, res) => {
       console.error("Ответ ошибки от Dadata API:", error.response.data);
     }
     res.status(500).json({ error: "Ошибка при запросе к Dadata API" });
+  }
+});
+
+// Сохранение данных о новом пользователе (POST)
+app.post('/api/user/register', async (req, res) => {
+  console.log('Запрос на /api/user/register:', req.body);
+  const { city, street, house, apartment, contract, accountNumber } = req.body;
+
+  // Проверка обязательных полей
+  if (!city || !street || !house || !contract || !accountNumber) {
+    return res.status(400).json({
+      error: "Пожалуйста, заполните все обязательные поля."
+    });
+  }
+
+  // Генерация уникального user_id (можно использовать UUID)
+  const userId = Date.now(); // Пример, лучше использовать UUID для уникальности
+
+  const query = `
+    INSERT INTO users (
+      login_type, contract_number, city, street, house, apartment, account_number, created_at, user_id, is_special_user
+    ) VALUES (
+      'address', $1, $2, $3, $4, $5, $6, $7, $8, false
+    ) RETURNING user_id
+  `;
+
+  const values = [
+    contract,
+    city,
+    street,
+    house,
+    apartment || null, // Если не указана квартира, ставим null
+    accountNumber,
+    moment().format('YYYY-MM-DD HH:mm:ss'), // Текущая дата для created_at
+    userId,
+  ];
+
+  try {
+    // Вставляем данные пользователя в таблицу
+    const result = await db.query(query, values);
+
+    // Возвращаем ответ с успешно созданным user_id
+    res.status(201).json({
+      message: "Пользователь успешно зарегистрирован",
+      userId: result.rows[0].user_id,
+    });
+  } catch (err) {
+    console.error('Ошибка при регистрации пользователя:', err);
+    res.status(500).json({
+      error: "Ошибка при регистрации, попробуйте позже.",
+    });
+  }
+});
+
+app.post("/api/email/send-code", async (req, res) => {
+  const { userId, email } = req.body;
+  if (!userId || !email) {
+    return res.status(400).json({ error: "userId и email обязательны" });
+  }
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-значный код
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN'); // Начинаем транзакцию
+
+    // Вставка или обновление записи в таблице email_verification
+    await client.query(`
+      INSERT INTO email_verification (user_id, email, code)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id) DO UPDATE
+      SET code = EXCLUDED.code, created_at = CURRENT_TIMESTAMP
+    `, [userId, email, code]);
+
+    // Отправка письма
+    await transporter.sendMail({
+      from: `"Best Yard" <${config.smtp.user}>`,
+      to: email,
+      subject: "Код подтверждения",
+      text: `Ваш код подтверждения: ${code}`,
+    });
+
+    await client.query('COMMIT'); // Подтверждаем транзакцию
+    res.json({ message: "Код отправлен на email" });
+  } catch (err) {
+    await client.query('ROLLBACK'); // Откатываем транзакцию в случае ошибки
+    console.error("Ошибка при отправке email:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  } finally {
+    client.release(); // Освобождаем подключение
+  }
+});
+
+app.post("/api/email/verify", async (req, res) => {
+  const { userId, code } = req.body;
+
+  if (!userId || !code) {
+    return res.status(400).json({ error: "userId и code обязательны" });
+  }
+
+  try {
+    // 1. Проверяем, существует ли пользователь с таким userId в users
+    const userCheck = await db.query(`
+      SELECT user_id FROM users WHERE user_id = $1
+    `, [userId]);
+
+    if (userCheck.rows.length === 0) {
+      return res.status(400).json({ error: "Пользователь не найден" });
+    }
+
+    // 2. Проверка кода в email_verification
+    const result = await db.query(`
+      SELECT code, created_at FROM email_verification WHERE user_id = $1
+    `, [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Код не найден" });
+    }
+
+    const { code: storedCode, created_at } = result.rows[0];
+    const expired = new Date(created_at) < new Date(Date.now() - 10 * 60 * 1000); // 10 минут
+
+    if (expired) {
+      return res.status(400).json({ error: "Код истёк" });
+    }
+
+    if (storedCode.trim().toLowerCase() !== code.trim().toLowerCase()) {
+      console.log(`Код не совпадает. В базе: '${storedCode}', пришёл: '${code}'`);
+      return res.status(400).json({ error: "Неверный код" });
+    }
+
+    // 3. Обновляем email_verified в user_profiles, если пользователь найден
+    const updateResult = await db.query(`
+      UPDATE user_profiles SET email_verified = TRUE WHERE user_id = $1 RETURNING email_verified
+    `, [userId]);
+
+    if (updateResult.rowCount === 0) {
+      console.log("❌ UPDATE не сработал — user_id не найден в user_profiles");
+      return res.status(400).json({ error: "Пользователь не найден в профиле" });
+    }
+
+    // 4. Удаляем запись о верификации после успешного подтверждения
+    await db.query(`
+      DELETE FROM email_verification WHERE user_id = $1
+    `, [userId]);
+
+    res.json({ message: "Email успешно подтвержден" });
+  } catch (err) {
+    console.error("Ошибка при подтверждении email:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
   }
 });
 
