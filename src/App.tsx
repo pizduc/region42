@@ -12,12 +12,14 @@ import Profile from "./pages/Profile";
 import News from "./pages/News";
 import SupportChat from "./pages/SupportChat";
 import RepairRequests from "./pages/RepairRequests";
+import Register from "./pages/Register";  // Исправленный импорт страницы регистрации для специальных пользователей
 import NotFound from "./pages/NotFound";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import PaymentSuccess from './pages/PaymentSuccess';
 
 const queryClient = new QueryClient();
 
+// Защищенный маршрут, доступный только для аутентифицированных пользователей
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
@@ -26,10 +28,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Специальный маршрут, скрывающий страницы для specialUser
 const SpecialUserRoute = ({ children }: { children: React.ReactNode }) => {
   const { isSpecialUser } = useAuth();
   if (isSpecialUser) {
     return <Navigate to="/profile" replace />;
+  }
+  return <>{children}</>;
+};
+
+// Специальный маршрут, который показывает страницы только для specialUser
+const SpecialUserOnlyRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isSpecialUser } = useAuth();
+  if (!isSpecialUser) {
+    return <Navigate to="/" replace />; // Перенаправляем на главную, если пользователь не специальный
   }
   return <>{children}</>;
 };
@@ -52,7 +64,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              {/* Страница Оплаты и Показаний скрываются для SpecialUser */}
+              {/* Страница оплаты и показаний скрыта для SpecialUser */}
               <Route
                 path="/payments"
                 element={
@@ -73,6 +85,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              {/* Страница профиля доступна для всех */}
               <Route
                 path="/profile"
                 element={
@@ -86,6 +99,17 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <News />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Страница регистрации доступна только для специального пользователя */}
+              <Route
+                path="/register"
+                element={
+                  <ProtectedRoute>
+                    <SpecialUserOnlyRoute>
+                      <Register />
+                    </SpecialUserOnlyRoute>
                   </ProtectedRoute>
                 }
               />
