@@ -1,26 +1,48 @@
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, Home } from "lucide-react";
+import { LogOut, Home, Check, ArrowRight, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 const Profile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const userAddress = JSON.parse(localStorage.getItem("userAddress") || "{}");
   const userId = localStorage.getItem("userId");
 
+  // States for user data
+  const [userAddresses, setUserAddresses] = useState<any[]>([]);
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<{value: string}[]>([]);
   const [activeField, setActiveField] = useState("");
+  const [isProfileLocked, setIsProfileLocked] = useState(false);
+
+  // Email verification
+  const [emailCode, setEmailCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+
+  // Step management
+  const [currentStep, setCurrentStep] = useState(1);
+  const [stepsCompleted, setStepsCompleted] = useState({
+    personalInfo: false,
+    phone: false,
+    email: false,
+    emailVerification: false
+  });
+
+  // Save state
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSuccessfully, setSavedSuccessfully] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchSuggestions = async (query: string) => {
     if (!query) {
@@ -49,21 +71,167 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      // Redirect to login if no userId found
+      navigate("/login");
+      return;
+    }
+
+    setIsLoading(true);
+
     fetch(`https://best-yard.onrender.com/api/user/profile/${userId}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error: ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
-        const { last_name, first_name, middle_name, phone, email } = data;
+        console.log("Profile data:", data);
+        const { last_name, first_name, middle_name, phone, email, email_verified, is_profile_complete } = data;
+        
         setLastName(last_name || "");
         setFirstName(first_name || "");
         setMiddleName(middle_name || "");
         setPhone(phone || "");
         setEmail(email || "");
+
+        // Set email verification status based on the email_verified field from API
+        if (email_verified) {
+          console.log("Email is verified:", email_verified);
+          setIsEmailVerified(true);
+          // Update steps completion to reflect email verification
+          setStepsCompleted(prev => ({
+            ...prev,
+            emailVerification: true,
+            email: true
+          }));
+        }
+
+        // Check if profile is complete and lock it
+        if (is_profile_complete) {
+          setIsProfileLocked(true);
+          setSavedSuccessfully(true);
+        }
+        
+        // Check which steps are already completed from saved data
+        const completedSteps = {
+          personalInfo: !!(last_name && first_name && middle_name),
+          phone: !!phone && phone.length >= 18, // +7 (XXX) XXX-XX-XX
+          email: !!email,
+          emailVerification: !!email_verified
+        };
+        
+        setStepsCompleted(completedSteps);
+        
+        // Set current step based on completed data
+        if (is_profile_complete) {
+          setCurrentStep(5); // Show final step for completed profiles
+        } else if (!completedSteps.personalInfo) {
+          setCurrentStep(1);
+        } else if (!completedSteps.phone) {
+          setCurrentStep(2);
+        } else if (!completedSteps.email) {
+          setCurrentStep(3);
+        } else if (!completedSteps.emailVerification) {
+          setCurrentStep(4);
+        } else {
+          // All steps completed - show the final state
+          setCurrentStep(5); 
+        }
       })
-      .catch(() => {
-        console.log("Профиль не найден — можно заполнить");
+      .catch((error) => {
+        console.error("Ошибка при получении профиля:", error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось загрузить данные профиля",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-  }, [userId]);
+
+    fetch(`https://best-yard.onrender.com/api/user/addresses/${userId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setUserAddresses(data || []);
+      })
+      .catch((err) => {
+        console.error("Ошибка получения адресов:", err);
+      });
+  }, [userId, navigate, toast]);
+
+  const sendEmailCode = async () => {
+    if (!email || !userId) {
+      toast({
+        title: "Ошибка",
+        description: "Необходимо указать email",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch("https://best-yard.onrender.com/api/email/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, email }),
+      });
+
+      const data = await res.json();
+      
+      if (res.ok) {
+        setCodeSent(true);
+        toast({ title: "Код отправлен", description: "Проверьте почту" });
+      } else {
+        toast({ 
+          title: "Ошибка", 
+          description: data.error || "Не удалось отправить код", 
+          variant: "destructive" 
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка при отправке кода:", error);
+      toast({ 
+        title: "Ошибка", 
+        description: "Не удалось отправить код", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const verifyEmailCode = async () => {
+    try {
+      const res = await fetch("https://best-yard.onrender.com/api/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, code: emailCode }),
+      });
+
+      const data = await res.json();
+      
+      if (res.ok && data.message && data.message.includes("успешно")) {
+        toast({ title: "Email подтверждён" });
+        setIsEmailVerified(true);
+        setStepsCompleted({...stepsCompleted, emailVerification: true});
+        setCurrentStep(5);
+      } else {
+        toast({ 
+          title: "Ошибка", 
+          description: data.error || "Неверный или просроченный код",
+          variant: "destructive" 
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка при подтверждении кода:", error);
+      toast({ 
+        title: "Ошибка", 
+        description: "Не удалось подтвердить код", 
+        variant: "destructive" 
+      });
+    }
+  };
 
   const handleSave = () => {
     if (!userId) {
@@ -74,6 +242,9 @@ const Profile = () => {
       return;
     }
 
+    setIsSaving(true);
+    setSavedSuccessfully(false);
+
     const userInfo = {
       userId,
       lastName,
@@ -81,6 +252,8 @@ const Profile = () => {
       middleName,
       phone,
       email,
+      isEmailVerified, // Send verification status to API
+      isProfileComplete: true // Mark profile as complete
     };
 
     fetch("https://best-yard.onrender.com/api/user/profile", {
@@ -94,9 +267,19 @@ const Profile = () => {
           title: "Сохранено",
           description: "Данные успешно сохранены",
         });
+        setSavedSuccessfully(true);
+        setIsProfileLocked(true); // Lock profile after successful save
       })
       .catch((error) => {
         console.error("Ошибка:", error);
+        toast({
+          title: "Ошибка сохранения",
+          description: "Не удалось сохранить данные. Попробуйте еще раз.",
+          variant: "destructive"
+        });
+      })
+      .finally(() => {
+        setIsSaving(false);
       });
   };
 
@@ -115,34 +298,356 @@ const Profile = () => {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
+    let value = e.target.value.replace(/[^\d]/g, '');
+    if (!value.startsWith("7")) value = "7" + value;
 
-    // Убираем все символы, кроме цифр
-    value = value.replace(/[^\d]/g, '');
-
-    // Добавляем префикс +7, если его нет
-    if (!value.startsWith("7")) {
-      value = "7" + value;
-    }
-
-    // Форматируем номер телефона в стиль +7 (___) ___-__-__
-    if (value.length <= 1) {
-      value = "+7";
-    } else if (value.length <= 4) {
-      value = "+7 (" + value.slice(1, 4);
-    } else if (value.length <= 7) {
-      value = "+7 (" + value.slice(1, 4) + ") " + value.slice(4, 7);
-    } else if (value.length <= 9) {
-      value = "+7 (" + value.slice(1, 4) + ") " + value.slice(4, 7) + "-" + value.slice(7, 9);
-    } else if (value.length <= 11) {
-      value = "+7 (" + value.slice(1, 4) + ") " + value.slice(4, 7) + "-" + value.slice(7, 9) + "-" + value.slice(9, 11);
-    }
+    if (value.length <= 1) value = "+7";
+    else if (value.length <= 4) value = "+7 (" + value.slice(1);
+    else if (value.length <= 7) value = "+7 (" + value.slice(1, 4) + ") " + value.slice(4);
+    else if (value.length <= 9) value = "+7 (" + value.slice(1, 4) + ") " + value.slice(4, 7) + "-" + value.slice(7);
+    else value = "+7 (" + value.slice(1, 4) + ") " + value.slice(4, 7) + "-" + value.slice(7, 9) + "-" + value.slice(9, 11);
 
     setPhone(value);
   };
 
+  // Step validation functions
+  const validatePersonalInfo = () => {
+    if (!lastName.trim() || !firstName.trim() || !middleName.trim()) {
+      toast({ 
+        title: "Заполните все поля", 
+        description: "Необходимо указать фамилию, имя и отчество", 
+        variant: "destructive" 
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const validatePhone = () => {
+    if (!phone || phone.length < 18) {
+      toast({ 
+        title: "Неверный номер телефона", 
+        description: "Введите полный номер в формате +7 (XXX) XXX-XX-XX", 
+        variant: "destructive" 
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const validateEmail = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      toast({ 
+        title: "Неверный email", 
+        description: "Введите корректный адрес электронной почты", 
+        variant: "destructive" 
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    switch(currentStep) {
+      case 1:
+        if (validatePersonalInfo()) {
+          setStepsCompleted({...stepsCompleted, personalInfo: true});
+          setCurrentStep(2);
+        }
+        break;
+      case 2:
+        if (validatePhone()) {
+          setStepsCompleted({...stepsCompleted, phone: true});
+          setCurrentStep(3);
+        }
+        break;
+      case 3:
+        if (validateEmail()) {
+          setStepsCompleted({...stepsCompleted, email: true});
+          setCurrentStep(4);
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  const renderStepContent = () => {
+    if (isProfileLocked) {
+      // When profile is locked, always show read-only view
+      return (
+        <>
+          <div className="space-y-4 mb-6">
+            <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center">
+              <Check className="h-5 w-5 text-green-600 mr-2" />
+              <p className="text-green-800">
+                Профиль завершён и заблокирован для редактирования
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <span className="text-sm font-medium">Фамилия:</span>
+                <span>{lastName}</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <span className="text-sm font-medium">Имя:</span>
+                <span>{firstName}</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <span className="text-sm font-medium">Отчество:</span>
+                <span>{middleName}</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <span className="text-sm font-medium">Телефон:</span>
+                <span>{phone}</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <span className="text-sm font-medium">Email:</span>
+                <div className="flex items-center gap-2">
+                  <span>{email}</span>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <Check className="h-3 w-3 mr-1" />
+                    Подтвержден
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    switch(currentStep) {
+      case 1:
+        return (
+          <>
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[{
+                  id: "lastName", label: "Фамилия", value: lastName, setValue: setLastName
+                }, {
+                  id: "firstName", label: "Имя", value: firstName, setValue: setFirstName
+                }, {
+                  id: "middleName", label: "Отчество", value: middleName, setValue: setMiddleName
+                }].map(({ id, label, value, setValue }) => (
+                  <div key={id} className="relative space-y-2">
+                    <label htmlFor={id} className="text-sm font-medium">{label}</label>
+                    <Input
+                      id={id}
+                      value={value}
+                      onFocus={() => setActiveField(id)}
+                      onChange={(e) => {
+                        setValue(e.target.value);
+                        fetchSuggestions(e.target.value);
+                      }}
+                      placeholder={`Введите ${label.toLowerCase()}`}
+                    />
+                    {activeField === id && suggestions.length > 0 && (
+                      <ul className="absolute z-10 bg-white border shadow rounded w-full mt-1 max-h-40 overflow-y-auto">
+                        {suggestions.map((s, i) => (
+                          <li
+                            key={i}
+                            onClick={() => applySuggestion(s.value)}
+                            className="px-3 py-1 cursor-pointer hover:bg-gray-100"
+                          >
+                            {s.value}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Button onClick={handleNextStep} className="w-full">
+              Продолжить <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </>
+        );
+      
+      case 2:
+        return (
+          <>
+            <div className="space-y-4 mb-6">
+              <div className="space-y-2">
+                <label htmlFor="phone" className="text-sm font-medium">Номер телефона</label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  placeholder="+7 (___) ___-__-__"
+                />
+              </div>
+            </div>
+            <Button onClick={handleNextStep} className="w-full">
+              Продолжить <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </>
+        );
+      
+      case 3:
+        return (
+          <>
+            <div className="space-y-4 mb-6">
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">Email</label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="example@email.com"
+                />
+              </div>
+            </div>
+            <Button onClick={handleNextStep} className="w-full">
+              Продолжить <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </>
+        );
+      
+      case 4:
+        return (
+          <>
+            <div className="space-y-4 mb-6">
+              <p className="text-sm text-slate-600">Подтвердите ваш email адрес</p>
+              
+              {codeSent ? (
+                <div className="space-y-2">
+                  <label htmlFor="emailCode" className="text-sm font-medium">Введите код подтверждения</label>
+                  <Input
+                    id="emailCode"
+                    value={emailCode}
+                    onChange={(e) => setEmailCode(e.target.value)}
+                    placeholder="Введите код"
+                  />
+                  <Button 
+                    onClick={verifyEmailCode} 
+                    className="w-full mt-2"
+                    disabled={!emailCode}
+                  >
+                    Подтвердить код
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  onClick={sendEmailCode} 
+                  className="w-full mt-2"
+                >
+                  Отправить код на почту {email}
+                </Button>
+              )}
+            </div>
+          </>
+        );
+      
+      case 5:
+        return (
+          <>
+            <div className="space-y-4 mb-6">
+              <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center">
+                <Check className="h-5 w-5 text-green-600 mr-2" />
+                <p className="text-green-800">
+                  Все данные заполнены и подтверждены
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="text-sm font-medium">Фамилия:</span>
+                  <span>{lastName}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="text-sm font-medium">Имя:</span>
+                  <span>{firstName}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="text-sm font-medium">Отчество:</span>
+                  <span>{middleName}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="text-sm font-medium">Телефон:</span>
+                  <span>{phone}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="text-sm font-medium">Email:</span>
+                  <div className="flex items-center gap-2">
+                    <span>{email}</span>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Check className="h-3 w-3 mr-1" />
+                      Подтвержден
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {savedSuccessfully ? (
+              <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center justify-center">
+                <Check className="h-5 w-5 text-green-600 mr-2" />
+                <p className="text-green-800 font-medium">
+                  Данные успешно сохранены
+                </p>
+              </div>
+            ) : (
+              <Button 
+                onClick={handleSave} 
+                className="w-full"
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Сохранение...
+                  </>
+                ) : (
+                  "Завершить регистрацию"
+                )}
+              </Button>
+            )}
+          </>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  const getStepTitle = () => {
+    switch(currentStep) {
+      case 1: return "Личная информация";
+      case 2: return "Номер телефона";
+      case 3: return "Email адрес";
+      case 4: return "Подтверждение email";
+      case 5: return "Готово к сохранению";
+      default: return "Личная информация";
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-lg">Загрузка профиля...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Профиль</h1>
         <div className="flex gap-2">
@@ -157,98 +662,64 @@ const Profile = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Данные пользователя</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p><span className="font-medium">Город:</span> {userAddress.city}</p>
-          <p><span className="font-medium">Улица:</span> {userAddress.street}</p>
-          <p><span className="font-medium">Дом:</span> {userAddress.house}</p>
-          <p><span className="font-medium">Квартира:</span> {userAddress.apartment}</p>
-          <p><span className="font-medium">Номер договора:</span> {userAddress.contract}</p>
-          {userAddress.accountNumber && (
-            <p><span className="font-medium">Лицевой счет:</span> {userAddress.accountNumber}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Личная информация</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[{
-              id: "lastName",
-              label: "Фамилия",
-              value: lastName,
-              setValue: setLastName
-            }, {
-              id: "firstName",
-              label: "Имя",
-              value: firstName,
-              setValue: setFirstName
-            }, {
-              id: "middleName",
-              label: "Отчество",
-              value: middleName,
-              setValue: setMiddleName
-            }].map(({ id, label, value, setValue }) => (
-              <div key={id} className="relative space-y-2">
-                <label htmlFor={id} className="text-sm font-medium">{label}</label>
-                <Input
-                  id={id}
-                  value={value}
-                  onFocus={() => setActiveField(id)}
-                  onChange={(e) => {
-                    setValue(e.target.value);
-                    fetchSuggestions(e.target.value);
-                  }}
-                  placeholder={`Введите ${label.toLowerCase()}`}
-                />
-                {activeField === id && suggestions.length > 0 && (
-                  <ul className="absolute z-10 bg-white border shadow rounded w-full mt-1 max-h-40 overflow-y-auto">
-                    {suggestions.map((s, i) => (
-                      <li
-                        key={i}
-                        onClick={() => applySuggestion(s.value)}
-                        className="px-3 py-1 cursor-pointer hover:bg-gray-100"
-                      >
-                        {s.value}
-                      </li>
-                    ))}
-                  </ul>
+      {userAddresses.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Адреса пользователя</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {userAddresses.map((addr, idx) => (
+              <div key={idx} className="border rounded p-3 bg-muted">
+                <p><span className="font-medium">Город:</span> {addr.city}</p>
+                <p><span className="font-medium">Улица:</span> {addr.street}</p>
+                <p><span className="font-medium">Дом:</span> {addr.house}</p>
+                <p><span className="font-medium">Квартира:</span> {addr.apartment}</p>
+                <p><span className="font-medium">Номер договора:</span> {addr.contract_number}</p>
+                {addr.account_number && (
+                  <p><span className="font-medium">Лицевой счёт:</span> {addr.account_number}</p>
                 )}
               </div>
             ))}
-          </div>
+          </CardContent>
+        </Card>
+      )}
 
-          <div className="space-y-2">
-            <label htmlFor="phone" className="text-sm font-medium">Номер телефона</label>
-            <Input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={handlePhoneChange}
-              placeholder="+7 (___) ___-__-__"
-            />
+      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+        {/* Step indicators - only show if profile is not locked */}
+        {!isProfileLocked && (
+          <div className="flex border-b">
+            {[1, 2, 3, 4, 5].map((step) => (
+              <div 
+                key={step}
+                className={`flex-1 text-center py-3 text-xs font-medium
+                  ${step === currentStep ? 
+                    'bg-primary text-primary-foreground' : 
+                    step < currentStep ? 'bg-green-100 text-green-800' : 'bg-gray-50 text-gray-400'
+                  }
+                  ${step === 1 ? 'rounded-tl-lg' : ''}
+                  ${step === 5 ? 'rounded-tr-lg' : ''}
+                `}
+              >
+                {step < currentStep && <Check className="h-4 w-4 mx-auto" />}
+                {step === currentStep && <span>Шаг {step}</span>}
+                {step > currentStep && <span>Шаг {step}</span>}
+              </div>
+            ))}
           </div>
+        )}
 
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">Email</label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@email.com"
-            />
-          </div>
-
-          <Button onClick={handleSave} className="w-full">Сохранить</Button>
-        </CardContent>
-      </Card>
+        {/* Step content */}
+        <Card className="border-0 shadow-none">
+          <CardHeader>
+            <CardTitle>
+              {isProfileLocked ? "Профиль (завершён)" : getStepTitle()}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {renderStepContent()}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
