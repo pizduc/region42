@@ -1,40 +1,11 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-
-// Функция для запроса предложений от Яндекс Саджеста
-const fetchSuggestions = async (query: string, type: string) => {
-  try {
-    const url = `https://suggest-maps.yandex.ru/v1/suggest?apikey=${process.env.YANDEX_API_KEY}&text=${encodeURIComponent(query)}&lang=ru_RU&type=${type}`;
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
-    });
-
-    const data = await response.json();
-    const results = data?.results;
-
-    if (!Array.isArray(results)) {
-      console.warn("⚠️ Пустой или некорректный ответ:", data);
-      return [];
-    }
-
-    const suggestions = results
-      .filter((item) => item.uri?.includes("country--russia"))
-      .map((item) => item.title?.text)
-      .filter(Boolean);
-
-    return [...new Set(suggestions)];
-  } catch (error) {
-    console.error("❌ Ошибка запроса:", error);
-    return [];
-  }
-};
+import { MapPin, Building, Home, User } from "lucide-react";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const Register = () => {
   const { toast } = useToast();
@@ -45,50 +16,38 @@ const Register = () => {
   const [apartment, setApartment] = useState("");
   const [contract, setContract] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
-  const [streetSuggestions, setStreetSuggestions] = useState<string[]>([]);
-  const [activeField, setActiveField] = useState("");
-
-  const handleCityChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setCity(value);
-
-    if (value) {
-      const suggestions = await fetchSuggestions(value, "locality");
-      setCitySuggestions(suggestions);
-    } else {
-      setCitySuggestions([]);
-    }
-  };
-
-  const handleStreetChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setStreet(value);
-
-    if (value) {
-      const suggestions = await fetchSuggestions(value, "street");
-      setStreetSuggestions(suggestions);
-    } else {
-      setStreetSuggestions([]);
-    }
-  };
-
-  const applySuggestion = (value: string, field: string) => {
-    if (field === "city") setCity(value);
-    if (field === "street") setStreet(value);
-    setCitySuggestions([]);
-    setStreetSuggestions([]);
-  };
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Валидация обязательных полей
     if (!city || !street || !house || !contract || !accountNumber) {
       toast({
+        variant: "destructive",
         title: "Ошибка",
         description: "Пожалуйста, заполните все обязательные поля.",
       });
       return;
     }
+
+    if (contract.length !== 12) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Номер договора должен содержать ровно 12 символов.",
+      });
+      return;
+    }
+    
+    if (accountNumber.length !== 16) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Номер лицевого счета должен содержать ровно 16 символов.",
+      });
+      return;
+    }
+
+    setIsLoading(true);
 
     const userData = {
       city,
@@ -99,127 +58,150 @@ const Register = () => {
       accountNumber,
     };
 
-    fetch("https://best-yard.onrender.com/api/user/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData),
-    })
-      .then((response) => response.json())
-      .then(() => {
-        toast({
-          title: "Регистрация успешна",
-          description: "Ваши данные успешно зарегистрированы.",
-        });
-      })
-      .catch((error) => {
-        console.error("Ошибка при регистрации:", error);
-        toast({
-          title: "Ошибка",
-          description: "Произошла ошибка при регистрации. Попробуйте снова.",
-        });
+    try {
+      const response = await fetch("https://best-yard.onrender.com/api/user/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "Регистрация успешна",
+        description: "Ваши данные успешно зарегистрированы.",
+      });
+
+      // Очистка полей формы после успешной регистрации
+      setCity("");
+      setStreet("");
+      setHouse("");
+      setApartment("");
+      setContract("");
+      setAccountNumber("");
+    } catch (error) {
+      console.error("Ошибка при регистрации:", error);
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description: "Произошла ошибка при регистрации. Попробуйте снова.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Регистрация нового пользователя</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Регистрация адреса</h1>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Введите данные</CardTitle>
+          <CardDescription>
+            Поля со звездочкой (*) обязательны для заполнения
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="city" className="text-sm font-medium">Город</label>
-            <Input
-              id="city"
+            <label htmlFor="city" className="text-sm font-medium flex items-center">
+              <MapPin className="mr-1 h-4 w-4 text-blue-500" />
+              Город *
+            </label>
+            <AddressAutocomplete
+              type="locality"
               value={city}
-              onChange={handleCityChange}
-              placeholder="Введите город"
-              onFocus={() => setActiveField("city")}
+              onChange={setCity}
+              placeholder="Выберите город"
             />
-            {activeField === "city" && citySuggestions.length > 0 && (
-              <ul className="absolute z-10 bg-white border shadow rounded w-full mt-1 max-h-40 overflow-y-auto">
-                {citySuggestions.map((suggestion, index) => (
-                  <li
-                    key={index}
-                    onClick={() => applySuggestion(suggestion, "city")}
-                    className="px-3 py-1 cursor-pointer hover:bg-gray-100"
-                  >
-                    {suggestion}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="street" className="text-sm font-medium">Улица</label>
-            <Input
-              id="street"
+            <label htmlFor="street" className="text-sm font-medium flex items-center">
+              <Building className="mr-1 h-4 w-4 text-blue-500" />
+              Улица *
+            </label>
+            <AddressAutocomplete
+              type="street"
               value={street}
-              onChange={handleStreetChange}
-              placeholder="Введите улицу"
-              onFocus={() => setActiveField("street")}
+              onChange={setStreet}
+              placeholder="Выберите улицу"
+              cityValue={city}
             />
-            {activeField === "street" && streetSuggestions.length > 0 && (
-              <ul className="absolute z-10 bg-white border shadow rounded w-full mt-1 max-h-40 overflow-y-auto">
-                {streetSuggestions.map((suggestion, index) => (
-                  <li
-                    key={index}
-                    onClick={() => applySuggestion(suggestion, "street")}
-                    className="px-3 py-1 cursor-pointer hover:bg-gray-100"
-                  >
-                    {suggestion}
-                  </li>
-                ))}
-              </ul>
-            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="house" className="text-sm font-medium flex items-center">
+                <Home className="mr-1 h-4 w-4 text-blue-500" />
+                Дом *
+              </label>
+              <AddressAutocomplete
+                type="house"
+                value={house}
+                onChange={setHouse}
+                placeholder="Выберите дом"
+                cityValue={city}
+                streetValue={street}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="apartment" className="text-sm font-medium">
+                Квартира *
+              </label>
+              <Input
+                id="apartment"
+                value={apartment}
+                onChange={(e) => setApartment(e.target.value)}
+                placeholder="№ квартиры"
+                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="house" className="text-sm font-medium">Дом</label>
+            <label htmlFor="contract" className="text-sm font-medium flex items-center">
+              <User className="mr-1 h-4 w-4 text-blue-500" />
+              Номер договора *
+            </label>
             <Input
-              id="house"
-              value={house}
-              onChange={(e) => setHouse(e.target.value)}
-              placeholder="Введите номер дома"
-            />
+  id="contract"
+  value={contract}
+  onChange={(e) => setContract(e.target.value)}
+  placeholder="Введите номер договора"
+  maxLength={12} // Ограничение на 12 символов
+  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+/>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="apartment" className="text-sm font-medium">Квартира</label>
+            <label htmlFor="accountNumber" className="text-sm font-medium">
+              Номер лицевого счета *
+            </label>
             <Input
-              id="apartment"
-              value={apartment}
-              onChange={(e) => setApartment(e.target.value)}
-              placeholder="Введите номер квартиры"
-            />
+  id="accountNumber"
+  value={accountNumber}
+  onChange={(e) => setAccountNumber(e.target.value)}
+  placeholder="Введите номер лицевого счета"
+  maxLength={16} // Ограничение на 16 символов
+  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+/>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="contract" className="text-sm font-medium">Номер договора</label>
-            <Input
-              id="contract"
-              value={contract}
-              onChange={(e) => setContract(e.target.value)}
-              placeholder="Введите номер договора"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="accountNumber" className="text-sm font-medium">Номер лицевого счета</label>
-            <Input
-              id="accountNumber"
-              value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value)}
-              placeholder="Введите номер лицевого счета"
-            />
-          </div>
-
-          <Button onClick={handleSubmit} className="w-full">Зарегистрировать</Button>
+          <Button 
+            onClick={handleSubmit} 
+            className="w-full bg-blue-600 hover:bg-blue-700 transition-colors mt-4"
+            disabled={isLoading}
+          >
+            {isLoading ? "Отправка..." : "Зарегистрировать"}
+          </Button>
         </CardContent>
       </Card>
     </div>
