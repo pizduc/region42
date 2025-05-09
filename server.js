@@ -7,7 +7,7 @@ import nodemailer from "nodemailer";
 import path from "path";
 import { fileURLToPath } from "url";
 import config from "./config.js"; // Подключаем конфиг
-import { v4 as uuidv4 } from 'uuid'; // Импортируем функцию для генерации UUID
+import moment from 'moment';
 
 dotenv.config();
 
@@ -734,7 +734,6 @@ app.get("/api/suggest-fio", async (req, res) => {
   }
 });
 
-// Сохранение данных о новом пользователе (POST)
 app.post('/api/user/register', async (req, res) => {
   console.log('Запрос на /api/user/register:', req.body);
   const { city, street, house, apartment, contract, accountNumber } = req.body;
@@ -746,9 +745,7 @@ app.post('/api/user/register', async (req, res) => {
     });
   }
 
-  const userId = Date.now(); // Пример генерации user_id (лучше UUID)
   const createdAt = moment().format('YYYY-MM-DD HH:mm:ss');
-
   const client = await db.connect();
 
   try {
@@ -756,10 +753,11 @@ app.post('/api/user/register', async (req, res) => {
 
     const insertUserQuery = `
       INSERT INTO users (
-        login_type, contract_number, city, street, house, apartment, account_number, created_at, user_id, is_special_user
+        login_type, contract_number, city, street, house, apartment, account_number, created_at, is_special_user
       ) VALUES (
-        'address', $1, $2, $3, $4, $5, $6, $7, $8, false
+        'address', $1, $2, $3, $4, $5, $6, $7, false
       )
+      RETURNING user_id
     `;
 
     const userValues = [
@@ -770,10 +768,10 @@ app.post('/api/user/register', async (req, res) => {
       apartment || null,
       accountNumber,
       createdAt,
-      userId,
     ];
 
-    await client.query(insertUserQuery, userValues);
+    const result = await client.query(insertUserQuery, userValues);
+    const userId = result.rows[0].user_id;
 
     const insertProfileQuery = `
       INSERT INTO user_profiles (
@@ -784,7 +782,6 @@ app.post('/api/user/register', async (req, res) => {
     `;
 
     const profileValues = [userId, createdAt];
-
     await client.query(insertProfileQuery, profileValues);
 
     await client.query('COMMIT');
@@ -826,7 +823,7 @@ app.post("/api/email/send-code", async (req, res) => {
 
     // Отправка письма
     await transporter.sendMail({
-      from: `"Best Yard" <${config.smtp.user}>`,
+      from: `"Регион 42" <${config.smtp.user}>`,
       to: email,
       subject: "Код подтверждения",
       text: `Ваш код подтверждения: ${code}`,
