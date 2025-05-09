@@ -18,11 +18,15 @@ const Index = () => {
       .then((data) => setNews(data))
       .catch((error) => console.error("Ошибка загрузки новостей:", error));
 
-    // Получаем userId из localStorage
-    const userId = localStorage.getItem("userId");  // userId из localStorage
-    if (userId) {
-      fetch(`/api/user/addresses/${userId}`, {  // Получаем адрес по userId
-        method: "GET",
+    // Получаем адрес пользователя с сервера
+    const accountNumber = localStorage.getItem("accountNumber");  // Лицевой счет из localStorage
+    if (accountNumber) {
+      fetch("https://best-yard.onrender.com/user/addresses/:userId", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ accountNumber }),
       })
         .then((response) => response.json())
         .then((data) => {
