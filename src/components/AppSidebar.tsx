@@ -5,8 +5,8 @@ import {
   Newspaper,
   User,
   LogOut,
-  MessageSquare,
   Wrench,
+  UserPlus,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,10 +34,10 @@ export function AppSidebar() {
     !isSpecialUser && { title: "Оплата", icon: CreditCard, path: "/payments" },
     !isSpecialUser && { title: "Показания", icon: ListChecks, path: "/meters" },
     { title: "Новости", icon: Newspaper, path: "/news" },
-    !isSpecialUser && { title: "Чат с поддержкой", icon: MessageSquare, path: "/support-chat" },
     !isSpecialUser && { title: "Заявки на ремонт", icon: Wrench, path: "/repair-requests" },
     { title: "Профиль", icon: User, path: "/profile" },
-  ].filter(Boolean); // Убираем null/false значения  
+    isSpecialUser && { title: "Регистрация", icon: UserPlus, path: "/register" }, // Регистрация
+  ].filter(Boolean); // Убираем null/false значения
 
   const handleLogout = () => {
     localStorage.removeItem("userAddress");
