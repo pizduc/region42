@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, Download } from "lucide-react";
+import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, MessageSquare, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -18,15 +18,11 @@ const Index = () => {
       .then((data) => setNews(data))
       .catch((error) => console.error("Ошибка загрузки новостей:", error));
 
-    // Получаем адрес пользователя с сервера
-    const accountNumber = localStorage.getItem("accountNumber");  // Лицевой счет из localStorage
-    if (accountNumber) {
-      fetch("https://best-yard.onrender.com/user/addresses/:userId", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ accountNumber }),
+    // Получаем userId из localStorage
+    const userId = localStorage.getItem("userId");  // userId из localStorage
+    if (userId) {
+      fetch(`/api/user/addresses/${userId}`, {  // Получаем адрес по userId
+        method: "GET",
       })
         .then((response) => response.json())
         .then((data) => {
@@ -69,6 +65,14 @@ const Index = () => {
       path: "/news",
       color: "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200",
       iconColor: "text-amber-500",
+    },
+    !isSpecialUser && {
+      title: "Чат с поддержкой",
+      icon: MessageSquare,
+      description: "Задайте вопрос специалисту",
+      path: "/support-chat",
+      color: "bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200",
+      iconColor: "text-indigo-500",
     },
     !isSpecialUser && {
       title: "Заявки на ремонт",
