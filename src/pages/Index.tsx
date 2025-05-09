@@ -21,7 +21,7 @@ const Index = () => {
     // Получаем userId из localStorage
     const userId = localStorage.getItem("userId");  // userId из localStorage
     if (userId) {
-      fetch(`/api/user/addresses/${userId}`, {  // Получаем адрес по userId
+      fetch(`https://best-yard.onrender.com/api/user/addresses/${userId}`, {  // Получаем адрес по userId
         method: "GET",
       })
         .then((response) => response.json())
