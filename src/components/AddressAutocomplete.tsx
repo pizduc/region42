@@ -12,6 +12,7 @@ interface AddressAutocompleteProps {
   type: "locality" | "street" | "house";
   cityValue?: string;
   streetValue?: string;
+  inputClassName?: string; // 👈 добавлено
 }
 
 export function AddressAutocomplete({
@@ -20,7 +21,8 @@ export function AddressAutocomplete({
   placeholder,
   type,
   cityValue,
-  streetValue
+  streetValue,
+  inputClassName, // 👈 добавлено
 }: AddressAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value || "");
@@ -108,11 +110,12 @@ export function AddressAutocomplete({
       </PopoverTrigger>
       <PopoverContent className="w-[250px] p-0">
         <Command>
-          <CommandInput
-            placeholder={`Поиск ${type === "locality" ? "города" : type === "street" ? "улицы" : "дома"}...`}
-            value={inputValue}
-            onValueChange={setInputValue}
-          />
+        <CommandInput
+  className={cn("px-4 py-3 bg-gray-800 text-white", inputClassName)}
+  placeholder={`Поиск ${type === "locality" ? "города" : type === "street" ? "улицы" : "дома"}...`}
+  value={inputValue}
+  onValueChange={setInputValue}
+/>
           <CommandList>
             {renderEmptyMessage() && (
               <CommandEmpty>{renderEmptyMessage()}</CommandEmpty>
