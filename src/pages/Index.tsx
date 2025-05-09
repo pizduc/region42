@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, MessageSquare } from "lucide-react";
+import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -18,21 +18,23 @@ const Index = () => {
       .then((data) => setNews(data))
       .catch((error) => console.error("Ошибка загрузки новостей:", error));
 
-    // Получаем адрес пользователя с сервера
-    const accountNumber = localStorage.getItem("accountNumber");  // Лицевой счет из localStorage
-    if (accountNumber) {
-      fetch("/api/getUserAddress", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ accountNumber }),
+    // Получаем userId из localStorage
+    const userId = localStorage.getItem("userId");  // userId из localStorage
+    if (userId) {
+      fetch(`/api/user/addresses/${userId}`, {  // Получаем адрес по userId
+        method: "GET",
       })
         .then((response) => response.json())
         .then((data) => {
-          if (data.city) {
-            setUserAddress(data);  // Сохраняем адрес в состоянии
-            localStorage.setItem("userAddress", JSON.stringify(data));  // Сохраняем в localStorage
+          if (data && data.length > 0) {
+            const address = data[0]; // Выбираем первый адрес, если их несколько
+            setUserAddress({
+              city: address.city,
+              street: address.street,
+              house: address.house,
+              apartment: address.apartment,
+            });
+            localStorage.setItem("userAddress", JSON.stringify(address));  // Сохраняем в localStorage
           }
         })
         .catch((error) => console.error("Ошибка получения данных пользователя:", error));
@@ -65,14 +67,6 @@ const Index = () => {
       iconColor: "text-amber-500",
     },
     !isSpecialUser && {
-      title: "Чат с поддержкой",
-      icon: MessageSquare,
-      description: "Задайте вопрос специалисту",
-      path: "/support-chat",
-      color: "bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200",
-      iconColor: "text-indigo-500",
-    },
-    !isSpecialUser && {
       title: "Заявки на ремонт",
       icon: Wrench,
       description: "Оформление заявок на ремонт",
@@ -87,6 +81,15 @@ const Index = () => {
       path: "/profile",
       color: "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200",
       iconColor: "text-purple-500",
+    },
+    {
+      title: "Скачать приложение",  // Новая карточка для скачивания
+      icon: Download,
+      description: "Скачайте наше приложение для удобства использования",
+      path: "https://example.com/your-app.apk",  // Ссылка на файл для скачивания
+      color: "bg-gradient-to-br from-blue-50 to-red-100 border-purple-200",
+      iconColor: "text-red-500", // Цвет иконки для скачивания
+      isDownload: true, // Новый флаг для распознавания кнопки скачивания
     },
   ].filter(Boolean); // Убираем null/false элементы
 
@@ -117,7 +120,13 @@ const Index = () => {
           <Card
             key={item.title}
             className={`cursor-pointer card-hover border ${item.color} shadow-sm hover:shadow-md transition-all`}
-            onClick={() => navigate(item.path)}
+            onClick={() => {
+              if (item.isDownload) {
+                window.location.href = item.path; // Скачивание файла
+              } else {
+                navigate(item.path); // Переход по обычной ссылке
+              }
+            }}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
