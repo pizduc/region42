@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, MessageSquare, Download } from "lucide-react";
+import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -65,14 +65,6 @@ const Index = () => {
       path: "/news",
       color: "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200",
       iconColor: "text-amber-500",
-    },
-    !isSpecialUser && {
-      title: "Чат с поддержкой",
-      icon: MessageSquare,
-      description: "Задайте вопрос специалисту",
-      path: "/support-chat",
-      color: "bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200",
-      iconColor: "text-indigo-500",
     },
     !isSpecialUser && {
       title: "Заявки на ремонт",
