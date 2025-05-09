@@ -10,7 +10,6 @@ import Payments from "./pages/Payments";
 import Meters from "./pages/Meters";
 import Profile from "./pages/Profile";
 import News from "./pages/News";
-import SupportChat from "./pages/SupportChat";
 import RepairRequests from "./pages/RepairRequests";
 import Register from "./pages/Register";  // Исправленный импорт страницы регистрации для специальных пользователей
 import NotFound from "./pages/NotFound";
@@ -32,7 +31,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const SpecialUserRoute = ({ children }: { children: React.ReactNode }) => {
   const { isSpecialUser } = useAuth();
   if (isSpecialUser) {
-    return <Navigate to="/profile" replace />;
+    return <Navigate to="/Index" replace />;
   }
   return <>{children}</>;
 };
@@ -110,16 +109,6 @@ const App = () => (
                     <SpecialUserOnlyRoute>
                       <Register />
                     </SpecialUserOnlyRoute>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/support-chat"
-                element={
-                  <ProtectedRoute>
-                    <SpecialUserRoute>
-                      <SupportChat />
-                    </SpecialUserRoute>
                   </ProtectedRoute>
                 }
               />
