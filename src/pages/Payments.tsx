@@ -53,10 +53,107 @@ const Payments = () => {
   
   const months = getMonths();  
 
-  // Функция для расчета платежа на сервере
-  const calculatePayment = async () => {
-    const userId = localStorage.getItem('userId');  // Получаем userId из localStorage
+ const calculatePayment = async () => {
+  const userId = localStorage.getItem('userId');  // Получаем userId из localStorage
 
+  if (!userId) {
+    toast({
+      title: "Ошибка",
+      description: "Пользователь не авторизован",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (!selectedMonth || selectedServices.length === 0) {
+    toast({
+      title: "Ошибка",
+      description: "Пожалуйста, выберите месяц и услуги",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch(`https://best-yard.onrender.com/api/calculate-payment?userId=${userId}&selectedMonth=${encodeURIComponent(selectedMonth)}&selectedServices=${selectedServices.join(",")}`);
+    const data = await response.json();
+
+    if (data.error) {
+      toast({
+        title: "Ошибка",
+        description: data.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Получаем список неоплаченных месяцев
+    const unpaidMonths = data.unpaidMonths || [];
+    setUnpaidMonths(unpaidMonths); // Сохраняем их в состояние
+
+    // Остальной код для расчета платежей, например:
+    let total = 0;
+    const serviceDetails = {};
+
+    staticServices.concat(floatingServices).forEach((service) => {
+      if (selectedServices.includes(service.id)) {
+        let cost = 0;
+
+        // Для статичных услуг просто берем стоимость из сервера
+        if (staticServices.some(s => s.id === service.id)) {
+          cost = data.details?.[service.id] ?? 0; // Получаем итоговую стоимость с сервера
+        } else {
+          // Для плавающих услуг тоже получаем итоговую стоимость с сервера
+          cost = data.details?.[service.id] ?? 0; // Получаем итоговую стоимость с сервера
+        }
+
+        serviceDetails[service.id] = cost;
+        total += cost;
+
+        console.log(`Услуга: ${service.name}, Стоимость: ${cost}`);
+      }
+    });
+
+    setTotalAmount(parseFloat(total.toFixed(2))); // Итоговая сумма
+    setPaymentDetails(serviceDetails); // Детали расчета
+
+  } catch (error) {
+    console.error("Ошибка при расчете платежа", error);
+    toast({
+      title: "Ошибка",
+      description: "Не удалось получить данные с сервера.",
+      variant: "destructive",
+    });
+  }
+};
+
+// Пример преобразования: из "июня 2025" в "2025-06"
+function formatMonth(monthName: string): string {
+  const monthMap: Record<string, string> = {
+    'января': '01',
+    'февраля': '02',
+    'марта': '03',
+    'апреля': '04',
+    'мая': '05',
+    'июня': '06',
+    'июля': '07',
+    'августа': '08',
+    'сентября': '09',
+    'октября': '10',
+    'ноября': '11',
+    'декабря': '12',
+  };
+
+  const [name, year] = monthName.split(' ');
+  const month = monthMap[name.toLowerCase()];
+  return `${year}-${month}`; // например: 2025-06
+}
+
+const [unpaidMonths, setUnpaidMonths] = useState<string[]>([]);
+
+useEffect(() => {
+  const fetchUnpaidMonths = async () => {
+    const userId = localStorage.getItem('userId');
     if (!userId) {
       toast({
         title: "Ошибка",
@@ -66,93 +163,31 @@ const Payments = () => {
       return;
     }
 
-    if (!selectedMonth || selectedServices.length === 0) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, выберите месяц и услуги",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      const response = await fetch(`https://best-yard.onrender.com/api/calculate-payment?userId=${userId}&selectedServices=${selectedServices.join(",")}`);
+      const response = await fetch(`https://best-yard.onrender.com/api/unpaid-months?userId=${userId}`);
       const data = await response.json();
-
-      if (data.error) {
-        toast({
-          title: "Ошибка",
-          description: data.error,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      let total = 0;
-      const serviceDetails = {};
-
-      staticServices.concat(floatingServices).forEach((service) => {
-        if (selectedServices.includes(service.id)) {
-          let cost = 0;
-
-          // Для статичных услуг просто берем стоимость из сервера
-          if (staticServices.some(s => s.id === service.id)) {
-            cost = data.details?.[service.id] ?? 0; // Получаем итоговую стоимость с сервера
-          } else {
-            // Для плавающих услуг тоже получаем итоговую стоимость с сервера
-            cost = data.details?.[service.id] ?? 0; // Получаем итоговую стоимость с сервера
-          }
-
-          serviceDetails[service.id] = cost;
-          total += cost;
-
-          console.log(`Услуга: ${service.name}, Стоимость: ${cost}`);
-        }
-      });
-
-      setTotalAmount(parseFloat(total.toFixed(2))); // Итоговая сумма
-      setPaymentDetails(serviceDetails); // Детали расчета
-
+      
+      if (data.unpaidMonths) {
+  // Преобразуем ["2025-06"] → ["июнь 2025"]
+  const formatted = data.unpaidMonths.map((m: string) => {
+    const [year, month] = m.split("-");
+    const date = new Date(Number(year), Number(month) - 1);
+    return format(date, "MMMM yyyy", { locale: ru });
+  });
+  setUnpaidMonths(formatted);
+}
     } catch (error) {
-      console.error("Ошибка при расчете платежа", error);
+      console.error("❌ Ошибка при получении неоплаченных месяцев:", error);
       toast({
         title: "Ошибка",
-        description: "Не удалось получить данные с сервера.",
+        description: "Не удалось получить информацию о неоплаченных месяцах.",
         variant: "destructive",
       });
     }
   };
 
-  const [paidMonths, setPaidMonths] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchPaidMonths = async () => {
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
-        toast({
-          title: "Ошибка",
-          description: "Пользователь не авторизован",
-          variant: "destructive",
-        });
-        return;
-      }
-  
-      try {
-        const response = await fetch(`https://best-yard.onrender.com/api/paid-months?userId=${userId}`);
-        const data = await response.json();
-        setPaidMonths(data.paidMonths || []);
-      } catch (error) {
-        console.error("Ошибка при получении оплаченных месяцев", error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось получить информацию о оплаченных месяцах.",
-          variant: "destructive",
-        });
-      }
-    };
-  
-    fetchPaidMonths();
-  }, []);  
+  fetchUnpaidMonths();
+}, []);
 
   useEffect(() => {
     if (selectedMonth && selectedServices.length > 0) {
@@ -165,67 +200,73 @@ const Payments = () => {
   };
 
   const handlePayment = async () => {
-    if (!selectedPaymentMethod) {
-      toast({
-        title: "Выберите способ оплаты",
-        description: "Пожалуйста, выберите способ оплаты перед продолжением",
-        variant: "destructive",
-      });
-      return;
-    }
+  if (!selectedPaymentMethod) {
+    toast({
+      title: "Выберите способ оплаты",
+      description: "Пожалуйста, выберите способ оплаты перед продолжением",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      toast({
-        title: "Ошибка",
-        description: "Пользователь не авторизован",
-        variant: "destructive",
-      });
-      return;
-    }
+  const userId = localStorage.getItem('userId');
+  if (!userId) {
+    toast({
+      title: "Ошибка",
+      description: "Пользователь не авторизован",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    const paymentData = {
-      userId,
-      selectedMonth,
-      selectedServices,
-      totalAmount,
-      paymentMethod: selectedPaymentMethod,
-    };
+  const formattedMonth = formatMonth(selectedMonth); // 📅 преобразуем месяц
 
-    try {
-      const response = await fetch("https://best-yard.onrender.com/api/save-payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(paymentData),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Оплата успешно сохранена!",
-          description: `Сумма к оплате: ${totalAmount.toFixed(2)} ₽`,
-        });
-        // Перенаправление на страницу оплаты или успешного завершения
-        navigate('/payment-success');
-      } else {
-        toast({
-          title: "Ошибка",
-          description: data.error || "Не удалось сохранить данные оплаты.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Ошибка при отправке данных на сервер:", error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось отправить данные на сервер.",
-        variant: "destructive",
-      });
-    }
+  const paymentData = {
+    userId,
+    selectedMonth: formattedMonth,
+    selectedServices,
+    totalAmount,
+    paymentMethod: selectedPaymentMethod,
   };
+
+  try {
+    const response = await fetch("https://best-yard.onrender.com/api/save-payment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(paymentData),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+  toast({
+    title: "Оплата успешно сохранена!",
+    description: `Сумма к оплате: ${totalAmount.toFixed(2)} ₽`,
+  });
+
+  // ✅ Удаляем месяц из неоплаченных
+  setUnpaidMonths(prev => prev.filter(m => m !== selectedMonth));
+
+  navigate('/payment-success');
+}
+ else {
+      toast({
+        title: "Ошибка",
+        description: data.error || "Не удалось сохранить данные оплаты.",
+        variant: "destructive",
+      });
+    }
+  } catch (error) {
+    console.error("Ошибка при отправке данных на сервер:", error);
+    toast({
+      title: "Ошибка",
+      description: "Не удалось отправить данные на сервер.",
+      variant: "destructive",
+    });
+  }
+};
 
   return (
     <div className="space-y-6">
@@ -248,14 +289,14 @@ const Payments = () => {
                 <SelectValue placeholder="Выберите месяц" />
               </SelectTrigger>
               <SelectContent>
-              {months
-  .filter((month) => !paidMonths.includes(month)) // показываем только неоплаченные
-  .map((month, index) => (
-    <SelectItem key={index} value={month}>
-      {month}
-    </SelectItem>
-))}
-              </SelectContent>
+  {Array.from(new Set([selectedMonth, ...months.filter(month => unpaidMonths.includes(month))]))
+    .filter(Boolean) // на случай если selectedMonth пустой
+    .map((month, index) => (
+      <SelectItem key={index} value={month}>
+        {month}
+      </SelectItem>
+    ))}
+</SelectContent>
             </Select>
           </CardContent>
         </Card>
