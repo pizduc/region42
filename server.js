@@ -6,20 +6,18 @@ import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import path from "path";
 import { fileURLToPath } from "url";
-import config from "./config.js"; // Подключаем конфиг
+import config from "./config.js";
 import moment from 'moment';
 
 dotenv.config();
 
-// Получаем путь к текущему файлу и директории
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const { Pool } = pkg; // Деструктурируем Pool из импорта
+const { Pool } = pkg;
 
 const app = express();
-const db = new Pool(config.db); // Инициализация пула для работы с базой данных PostgreSQL
+const db = new Pool(config.db); 
 
-// Настройки CORS
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || config.cors.origins.includes(origin)) {
@@ -31,20 +29,18 @@ const corsOptions = {
   credentials: true,
 };
 
-app.use(cors(corsOptions)); // Применяем CORS
-app.use(express.json()); // Обработка JSON данных
+app.use(cors(corsOptions)); 
+app.use(express.json()); 
 
-// Проверка подключения к базе данных
 db.connect()
   .then(() => {
     console.log("✅ Подключение к базе данных PostgreSQL успешно!");
   })
   .catch((err) => {
     console.error("❌ Ошибка подключения к базе данных PostgreSQL:", err);
-    process.exit(1); // Завершаем процесс, если не удалось подключиться
+    process.exit(1); 
   });
 
-// fetchSuggestions.js
 const fetchSuggestions = async (query, type) => {
   try {
     const url = `https://suggest-maps.yandex.ru/v1/suggest?apikey=${YANDEX_API_KEY}&text=${encodeURIComponent(query)}&lang=ru_RU&type=${type}`;
@@ -76,7 +72,6 @@ const fetchSuggestions = async (query, type) => {
   }
 };
 
-// suggest endpoint
 app.get("/suggest", async (req, res) => {
   const { query, type } = req.query;
 
@@ -88,7 +83,6 @@ app.get("/suggest", async (req, res) => {
   res.json({ suggestions });
 });
 
-// Настройка SMTP для отправки email
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
@@ -99,7 +93,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// API для подачи заявки
 app.post("/api/applications2", async (req, res) => {
   const { type, description, date, time, phone } = req.body;
 
@@ -228,7 +221,6 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// Пример API для получения данных пользователя по лицевому счету
 app.post('/api/getUserAddress', async (req, res) => {
   const { accountNumber } = req.body;
   try {
@@ -249,7 +241,6 @@ app.post('/api/getUserAddress', async (req, res) => {
   }
 });
 
-// ✅ Получение всех новостей
 app.get("/api/news", (req, res) => {
   db.query("SELECT * FROM news ORDER BY created_at DESC", (err, results) => {
     if (err) {
@@ -260,7 +251,6 @@ app.get("/api/news", (req, res) => {
   });
 });
 
-// ✅ Добавление новости (только для specialUser)
 app.post("/api/news", (req, res) => {
   const { title, content, userId } = req.body;
   
@@ -291,7 +281,6 @@ app.post("/api/news", (req, res) => {
   });
 });
 
-// Маршрут для удаления новости
 app.delete("/api/news/:id", (req, res) => {
   const { id } = req.params;  // Получаем ID новости из параметров URL
   const { userId } = req.query; // Получаем userId из query-параметра
@@ -324,7 +313,6 @@ app.delete("/api/news/:id", (req, res) => {
   });
 });
 
-// ✅ Получение последних показаний
 app.get("/api/meter-readings", async (req, res) => {
   const { userId } = req.query;
 
@@ -373,7 +361,6 @@ app.get("/api/meter-readings", async (req, res) => {
   }
 });
 
-// ✅ Добавление или обновление показаний
 app.post("/api/meter-readings", async (req, res) => {
   const { userId, hotWater, coldWater, electricity, readingDate } = req.body;
 
@@ -423,14 +410,13 @@ app.post("/api/meter-readings", async (req, res) => {
 });
 
 app.get("/api/calculate-payment", async (req, res) => {
-  const { userId, selectedServices } = req.query;
+  const { userId, selectedServices, selectedMonth } = req.query;
 
-  if (!userId || !selectedServices) {
-    return res.status(400).json({ error: "Не указан userId или выбранные услуги" });
+  if (!userId || !selectedServices || !selectedMonth) {
+    return res.status(400).json({ error: "Не указан userId, услуги или месяц" });
   }
 
   const selectedServicesArray = selectedServices.split(",").map(s => s.trim()).filter(Boolean);
-  let totalAmount = 0;
 
   const tariffs = {
     heating: 500,
@@ -440,8 +426,54 @@ app.get("/api/calculate-payment", async (req, res) => {
     electricity: 4.70
   };
 
-  if (selectedServicesArray.includes("heating")) totalAmount += tariffs.heating;
-  if (selectedServicesArray.includes("maintenance")) totalAmount += tariffs.maintenance;
+  let totalAmount = 0;
+  const details = {
+    heating: 0,
+    maintenance: 0,
+    hot_water: 0,
+    cold_water: 0,
+    electricity: 0
+  };
+
+  // Преобразуем месяц в формат YYYY-MM
+  const monthsMap = {
+    января: 1,
+    февраля: 2,
+    марта: 3,
+    апреля: 4,
+    мая: 5,
+    июня: 6,
+    июля: 7,
+    августа: 8,
+    сентября: 9,
+    октября: 10,
+    ноября: 11,
+    декабря: 12
+  };
+
+  const [monthName, year] = selectedMonth.split(" ");
+  const monthNumber = monthsMap[monthName.toLowerCase()];
+  if (!monthNumber || !year) {
+    return res.status(400).json({ error: "Некорректный формат месяца" });
+  }
+  const formattedMonth = `${year}-${monthNumber.toString().padStart(2, "0")}`;
+
+  // Теперь, formattedMonth имеет правильный формат YYYY-MM
+  console.log(formattedMonth); // Для отладки
+
+  // Дальше продолжаем расчёт
+  if (selectedServicesArray.includes("heating")) {
+    details.heating = tariffs.heating;
+    totalAmount += tariffs.heating;
+  }
+
+  if (selectedServicesArray.includes("maintenance")) {
+    details.maintenance = tariffs.maintenance;
+    totalAmount += tariffs.maintenance;
+  }
+
+  const prevMonthDate = new Date(Number(year), monthNumber - 2); // Месяц на 1 меньше, т.к. с 0
+  const prevMonth = prevMonthDate.toISOString().slice(0, 7);
 
   try {
     const paidRes = await db.query(
@@ -451,26 +483,36 @@ app.get("/api/calculate-payment", async (req, res) => {
     const paidMonths = paidRes.rows.map(row => row.reading_date.toISOString().slice(0, 7));
 
     const readingsRes = await db.query(
-      `SELECT hot_water, cold_water, electricity, reading_date
+      `SELECT hot_water, cold_water, electricity, to_char(reading_date, 'YYYY-MM') AS month
        FROM meter_readings
-       WHERE user_id = $1
-       ORDER BY reading_date DESC
-       LIMIT 2`,
-      [userId]
+       WHERE user_id = $1 AND to_char(reading_date, 'YYYY-MM') IN ($2, $3)
+       ORDER BY reading_date`,
+      [userId, formattedMonth, prevMonth]
     );
 
-    const results = readingsRes.rows;
+    const readings = {};
+    readingsRes.rows.forEach(row => {
+      readings[row.month] = row;
+    });
 
-    if (results.length === 0) {
+    const current = readings[formattedMonth];
+    const previous = readings[prevMonth];
+
+    if (!current) {
       return res.json({
         totalAmount: totalAmount.toFixed(2),
         paidMonths,
-        warning: "Нет данных о предыдущих показаниях"
+        warning: `Нет показаний за выбранный месяц: ${formattedMonth}`
       });
     }
 
-    const current = results[0];
-    const previous = results[1] || { hot_water: 0, cold_water: 0, electricity: 0 };
+    if (!previous) {
+      return res.json({
+        totalAmount: totalAmount.toFixed(2),
+        paidMonths,
+        warning: `Нет показаний за предыдущий месяц: ${prevMonth}`
+      });
+    }
 
     const consumption = {
       hot_water: Math.max(parseFloat(current.hot_water) - parseFloat(previous.hot_water), 0),
@@ -478,21 +520,27 @@ app.get("/api/calculate-payment", async (req, res) => {
       electricity: Math.max(parseFloat(current.electricity) - parseFloat(previous.electricity), 0)
     };
 
-    if (selectedServicesArray.includes("hot_water")) totalAmount += consumption.hot_water * tariffs.hot_water;
-    if (selectedServicesArray.includes("cold_water")) totalAmount += consumption.cold_water * tariffs.cold_water;
-    if (selectedServicesArray.includes("electricity")) totalAmount += consumption.electricity * tariffs.electricity;
+    if (selectedServicesArray.includes("hot_water")) {
+      details.hot_water = +(consumption.hot_water * tariffs.hot_water).toFixed(2);
+      totalAmount += details.hot_water;
+    }
+
+    if (selectedServicesArray.includes("cold_water")) {
+      details.cold_water = +(consumption.cold_water * tariffs.cold_water).toFixed(2);
+      totalAmount += details.cold_water;
+    }
+
+    if (selectedServicesArray.includes("electricity")) {
+      details.electricity = +(consumption.electricity * tariffs.electricity).toFixed(2);
+      totalAmount += details.electricity;
+    }
 
     res.json({
       totalAmount: totalAmount.toFixed(2),
       paidMonths,
-      details: {
-        heating: selectedServicesArray.includes("heating") ? tariffs.heating : 0,
-        maintenance: selectedServicesArray.includes("maintenance") ? tariffs.maintenance : 0,
-        hot_water: selectedServicesArray.includes("hot_water") ? consumption.hot_water * tariffs.hot_water : 0,
-        cold_water: selectedServicesArray.includes("cold_water") ? consumption.cold_water * tariffs.cold_water : 0,
-        electricity: selectedServicesArray.includes("electricity") ? consumption.electricity * tariffs.electricity : 0
-      }
+      details
     });
+
   } catch (err) {
     console.error("❌ Ошибка при расчете платежа:", err);
     res.status(500).json({ error: "Ошибка сервера" });
@@ -500,17 +548,15 @@ app.get("/api/calculate-payment", async (req, res) => {
 });
 
 app.post("/api/payments", async (req, res) => {
-  const { userId, readingDate, services, totalAmount, paymentMethod } = req.body;
+  const { userId, readingDate, services, totalAmount, paymentMethod, details } = req.body;
 
-  if (!userId || !readingDate || !services || services.length === 0 || !totalAmount || !paymentMethod) {
+  if (!userId || !readingDate || !services || !Array.isArray(services) || !totalAmount || !paymentMethod || !details) {
     return res.status(400).json({ error: "Некорректные данные" });
   }
 
-  // Извлекаем месяц из даты в формате 'YYYY-MM-DD HH:mm:ss.SSS'
-  const monthStr = readingDate.slice(0, 7); // 'YYYY-MM'
+  const monthStr = readingDate.slice(0, 7); // YYYY-MM
 
   try {
-    // Проверка, если оплата за этот месяц уже была произведена
     const checkQuery = `
       SELECT 1 FROM paid_services 
       WHERE user_id = $1 AND to_char(reading_date, 'YYYY-MM') = $2
@@ -521,12 +567,20 @@ app.post("/api/payments", async (req, res) => {
       return res.status(400).json({ error: "Оплата за этот месяц уже произведена" });
     }
 
-    // Вставка данных об оплате
     const insertQuery = `
-      INSERT INTO paid_services (user_id, reading_date, services, sum, payment_method)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO paid_services (user_id, cold_water, hot_water, electricity, reading_date, sum, payment_method, services, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
     `;
-    await db.query(insertQuery, [userId, readingDate, JSON.stringify(services), totalAmount, paymentMethod]);
+    await db.query(insertQuery, [
+      userId,
+      details.cold_water || 0,
+      details.hot_water || 0,
+      details.electricity || 0,
+      readingDate,
+      totalAmount,
+      paymentMethod,
+      JSON.stringify(services)
+    ]);
 
     res.json({ success: true, message: "Оплата успешно сохранена" });
   } catch (err) {
@@ -536,33 +590,46 @@ app.post("/api/payments", async (req, res) => {
 });
 
 app.post("/api/save-payment", async (req, res) => {
-  const { userId, selectedMonth, selectedServices, totalAmount, paymentMethod } = req.body;
+  const { userId, selectedMonth, details, selectedServices, totalAmount, paymentMethod } = req.body;
 
-  if (!userId || !selectedMonth || !selectedServices || totalAmount === undefined || !paymentMethod) {
-    return res.status(400).json({ error: "Некорректные данные" });
+  if (!userId || !selectedMonth || totalAmount === undefined || !paymentMethod) {
+    return res.status(400).json({ error: "Некорректные данные (отсутствуют обязательные поля)" });
   }
 
-  const readingDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  const currentDate = readingDate;
+  // Подготовка данных: либо из details, либо из selectedServices
+  let coldWater = 0, hotWater = 0, electricity = 0;
 
-  const coldWaterAmount = selectedServices.includes("cold_water") ? totalAmount * 0.2 : 0;
-  const hotWaterAmount = selectedServices.includes("hot_water") ? totalAmount * 0.3 : 0;
-  const electricityAmount = selectedServices.includes("electricity") ? totalAmount * 0.5 : 0;
+  if (details) {
+    coldWater = details.cold_water || 0;
+    hotWater = details.hot_water || 0;
+    electricity = details.electricity || 0;
+  } else if (Array.isArray(selectedServices)) {
+    // Пример: если услуга выбрана — считаем, что её стоимость включена
+    coldWater = selectedServices.includes("cold_water") ? 1 : 0;
+    hotWater = selectedServices.includes("hot_water") ? 1 : 0;
+    electricity = selectedServices.includes("electricity") ? 1 : 0;
+  } else {
+    return res.status(400).json({ error: "Не передан ни объект details, ни список selectedServices" });
+  }
+
+  const readingDate = `${selectedMonth}-01 00:00:00`;
+  const createdAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
   try {
     const insertQuery = `
       INSERT INTO paid_services 
-      (user_id, cold_water, hot_water, electricity, reading_date, sum, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      (user_id, cold_water, hot_water, electricity, reading_date, sum, created_at, payment_method)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `;
     await db.query(insertQuery, [
       userId,
-      coldWaterAmount,
-      hotWaterAmount,
-      electricityAmount,
+      coldWater,
+      hotWater,
+      electricity,
       readingDate,
       totalAmount,
-      currentDate
+      createdAt,
+      paymentMethod
     ]);
 
     res.json({ success: true });
@@ -614,7 +681,43 @@ app.get("/api/paid-months", async (req, res) => {
   }
 });
 
-// Получение данных пользователя по userId
+app.get("/api/unpaid-months", async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: "Не указан userId" });
+  }
+
+  try {
+    // Получаем все оплаченные месяцы для пользователя
+    const paidRes = await db.query(
+      `SELECT to_char(reading_date, 'YYYY-MM') AS month 
+       FROM paid_services 
+       WHERE user_id = $1`, 
+      [userId]
+    );
+    const paidMonths = paidRes.rows.map(row => row.month);
+
+    // Получаем все доступные месяцы из показаний
+    const readingsRes = await db.query(
+      `SELECT DISTINCT to_char(reading_date, 'YYYY-MM') AS month 
+       FROM meter_readings 
+       WHERE user_id = $1`, 
+      [userId]
+    );
+    const allMonths = readingsRes.rows.map(row => row.month);
+
+    // Фильтруем все месяцы, которые не оплачены
+    const unpaidMonths = allMonths.filter(month => !paidMonths.includes(month));
+
+    res.json({ unpaidMonths });
+
+  } catch (err) {
+    console.error("❌ Ошибка при получении неоплаченных месяцев:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
 app.get("/api/user/addresses/:userId", async (req, res) => {
   const { userId } = req.params;
 
@@ -670,7 +773,6 @@ app.post('/api/user/profile', async (req, res) => {
   }
 });
 
-// Получение данных профиля по userId
 app.get("/api/user/profile/:userId", async (req, res) => {
   const { userId } = req.params;
 
@@ -703,7 +805,6 @@ app.get("/api/user/profile/:userId", async (req, res) => {
   }
 });
 
-// Подсказка ФИО через Dadata
 app.get("/api/suggest-fio", async (req, res) => {
   const { query } = req.query;
 
@@ -911,7 +1012,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
-// Старт сервера
 app.listen(config.port, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на порту ${config.port}`);
 });
