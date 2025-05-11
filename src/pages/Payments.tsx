@@ -39,20 +39,19 @@ const Payments = () => {
   const getMonths = () => {
     const currentDate = new Date();
     const monthsArray = [];
-
-    // Начинаем с предыдущего месяца
-    const firstMonth = subMonths(currentDate, 1);
-
-    // Генерация месяцев начиная с предыдущего
+  
+    const firstMonth = subMonths(currentDate, 1); // прошлый месяц
+  
     for (let i = 0; i < 12; i++) {
-      const month = addMonths(firstMonth, i);  // Добавляем месяц
-      monthsArray.push(format(month, "MMMM yyyy", { locale: ru }));
+      const month = addMonths(firstMonth, i);
+      const formatted = format(month, "MMMM yyyy", { locale: ru });
+      monthsArray.push(formatted);
     }
-
+  
     return monthsArray;
   };
-
-  const months = getMonths();
+  
+  const months = getMonths();  
 
   // Функция для расчета платежа на сервере
   const calculatePayment = async () => {
@@ -137,7 +136,7 @@ const Payments = () => {
         });
         return;
       }
-
+  
       try {
         const response = await fetch(`https://best-yard.onrender.com/api/paid-months?userId=${userId}`);
         const data = await response.json();
@@ -151,9 +150,15 @@ const Payments = () => {
         });
       }
     };
-
+  
     fetchPaidMonths();
   }, []);  
+
+  useEffect(() => {
+    if (selectedMonth && selectedServices.length > 0) {
+      calculatePayment();
+    }
+  }, [selectedMonth, selectedServices]);  
 
   const handleBackToMain = () => {
     navigate('/');
@@ -243,11 +248,13 @@ const Payments = () => {
                 <SelectValue placeholder="Выберите месяц" />
               </SelectTrigger>
               <SelectContent>
-                {paidMonths.map((month, index) => (
-                  <SelectItem key={index} value={month}>
-                    {month}
-                  </SelectItem>
-                ))}
+              {months
+  .filter((month) => !paidMonths.includes(month)) // показываем только неоплаченные
+  .map((month, index) => (
+    <SelectItem key={index} value={month}>
+      {month}
+    </SelectItem>
+))}
               </SelectContent>
             </Select>
           </CardContent>
