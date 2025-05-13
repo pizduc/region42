@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "node server.js",
-    "client": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "lint": "eslint .",
-    "start": "vite preview"
+"scripts": {
+  "dev": "concurrently \"npm run db:init\" \"npm run server\" \"npm run client\"",
+  "server": "node server.js",
+  "client": "vite",
+  "build": "vite build",
+  "build:dev": "vite build --mode development",
+  "lint": "eslint .",
+  "start": "vite preview",
+  "db:init": "node SetupDatabase.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -47,6 +48,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "cores": "^0.8.5",
     "cors": "^2.8.5",
     "dadata-suggestions": "^1.1.1",
     "date-fns": "^3.6.0",
@@ -58,6 +60,7 @@
     "https-proxy-agent": "^7.0.6",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.487.0",
+    "moment": "^2.30.1",
     "mysql2": "^3.13.0",
     "next-themes": "^0.3.0",
     "node-fetch": "^3.3.2",
