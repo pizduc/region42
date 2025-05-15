@@ -252,8 +252,8 @@ app.get("/api/news", (req, res) => {
 });
 
 app.post("/api/news", (req, res) => {
-  const { title, content, userId } = req.body;
-  
+  const { title, content, userId, tag } = req.body;
+
   if (!title || !content || !userId) {
     return res.status(400).json({ error: "Заголовок, текст и userId обязательны" });
   }
@@ -269,8 +269,8 @@ app.post("/api/news", (req, res) => {
       return res.status(403).json({ error: "Нет прав на добавление новостей" });
     }
 
-    const insertQuery = "INSERT INTO news (title, content) VALUES ($1, $2)";
-    db.query(insertQuery, [title, content], (err) => {
+    const insertQuery = "INSERT INTO news (title, content, tag) VALUES ($1, $2, $3)";
+    db.query(insertQuery, [title, content, tag || null], (err) => {
       if (err) {
         console.error("❌ Ошибка при добавлении новости:", err);
         return res.status(500).json({ error: "Ошибка сервера" });
