@@ -10,6 +10,7 @@ const News = () => {
   const [isSpecialUser, setIsSpecialUser] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [newTag, setNewTag] = useState(""); // 👈 добавили состояние для тега
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -19,7 +20,7 @@ const News = () => {
 
   const fetchNews = async () => {
     try {
-      const response = await axios.get("https://best-yard.onrender.com/api/news"); // Новый URL
+      const response = await axios.get("https://best-yard.onrender.com/api/news");
       setNews(response.data);
     } catch (error) {
       console.error("Ошибка загрузки новостей:", error);
@@ -27,7 +28,7 @@ const News = () => {
   };
 
   const handleAddNews = async () => {
-    const userId = localStorage.getItem("userId"); // Получаем userId из localStorage
+    const userId = localStorage.getItem("userId");
     if (!userId) {
       console.error("❌ userId не найден в localStorage!");
       return;
@@ -35,15 +36,17 @@ const News = () => {
 
     try {
       setLoading(true);
-      const response = await axios.post("https://best-yard.onrender.com/api/news", { // Новый URL
+      const response = await axios.post("https://best-yard.onrender.com/api/news", {
         title: newTitle,
         content: newContent,
-        userId, // 🔥 Убедись, что он есть!
+        tag: newTag, // 👈 отправляем тег на сервер
+        userId,
       });
 
       console.log("✅ Ответ сервера:", response.data);
       setNewTitle("");
       setNewContent("");
+      setNewTag(""); // 👈 очищаем тег после отправки
       fetchNews();
     } catch (error) {
       console.error("❌ Ошибка при добавлении новости:", error.response?.data || error.message);
@@ -58,23 +61,22 @@ const News = () => {
       console.error("❌ userId не найден в localStorage!");
       return;
     }
-  
+
     try {
-      const response = await axios.delete(`https://best-yard.onrender.com/api/news/${newsId}?userId=${userId}`); // Новый URL
+      const response = await axios.delete(`https://best-yard.onrender.com/api/news/${newsId}?userId=${userId}`);
       if (response.data.success) {
         console.log("✅ Новость удалена");
-        setNews(news.filter((item) => item.id !== newsId)); // Убираем удаленную новость из списка
+        setNews(news.filter((item) => item.id !== newsId));
       }
     } catch (error) {
       console.error("❌ Ошибка при удалении новости:", error.response?.data || error.message);
     }
-  };  
+  };
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Новости</h1>
 
-      {/* Форма добавления новости - только для specialUser */}
       {isSpecialUser && (
         <div className="mb-6 p-4 border rounded-lg shadow">
           <h2 className="text-lg font-semibold">Добавить новость</h2>
@@ -90,26 +92,36 @@ const News = () => {
             onChange={(e) => setNewContent(e.target.value)}
             className="mt-2"
           />
+          <select
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            className="mt-2 p-2 border rounded w-full"
+          >
+            <option value="">Без тега</option>
+            <option value="#СРОЧНО">#СРОЧНО</option>
+          </select>
           <Button onClick={handleAddNews} className="mt-3" disabled={loading}>
             {loading ? "Добавление..." : "Добавить новость"}
           </Button>
         </div>
       )}
 
-      {/* Список новостей */}
       <div className="grid gap-4">
         {news.map((item) => (
           <Card key={item.id}>
             <CardHeader>
-              <CardTitle>{item.title}</CardTitle>
+              <CardTitle>
+  {isSpecialUser && item.tag && (
+    <span className="text-red-500 mr-2">{item.tag}</span>
+  )}
+  {item.title}
+</CardTitle>
             </CardHeader>
             <CardContent>
               <p>{item.content}</p>
               <p className="text-xs text-muted-foreground mt-2">
                 {new Date(item.created_at).toLocaleString("ru-RU")}
               </p>
-
-              {/* Кнопка удаления для specialUser */}
               {isSpecialUser && (
                 <Button
                   variant="destructive"
