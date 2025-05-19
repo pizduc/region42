@@ -56,66 +56,145 @@ const Login = () => {
       });
       return;
     }
+    if (loginType === "account" && formData.accountNumber.length !== 16) {
+  toast({
+    title: "Ошибка",
+    description: "Номер лицевого счёта должен состоять из 16 символов",
+    variant: "destructive",
+  });
+  return;
+}
 
     // Проверяем, что все обязательные поля заполнены
-    if (requiredFields.every((field) => formData[field as keyof typeof formData])) {
-      try {
-        const response = await axios.post("https://best-yard.onrender.com/api/login", {
-          loginType,
-          ...formData,
-        });
+   try {
+  const response = await axios.post("https://best-yard.onrender.com/api/login", {
+    loginType,
+    ...formData,
+  });
 
-        console.log("Ответ от сервера:", response.data); // Логируем ответ от сервера
+  if (response.data.success) {
+    const { userId, isSpecialUser } = response.data;
 
-        if (response.data.success) {
-          const { userId, isSpecialUser } = response.data;
+    localStorage.setItem("userId", userId);
+    localStorage.setItem("isSpecialUser", isSpecialUser.toString());
+    localStorage.setItem("userAddress", JSON.stringify(formData));
 
-          // Сохраняем данные пользователя в localStorage
-          localStorage.setItem("userId", userId);
-          localStorage.setItem("isSpecialUser", isSpecialUser.toString());
-          localStorage.setItem("userAddress", JSON.stringify(formData));
+    toast({
+      title: "Успешный вход",
+      description: isSpecialUser
+        ? "Добро пожаловать (особый пользователь)"
+        : "Добро пожаловать в личный кабинет",
+    });
 
-          // Отправляем уведомление о успешном входе
-          if (loginType === "address") {
-            toast({
-              title: "Успешный вход",
-              description: "Добро пожаловать в личный кабинет",
-            });
-          } else if (isSpecialUser) {
-            toast({
-              title: "Успешный вход",
-              description: "Добро пожаловать в личный кабинет (особый пользователь)",
-            });
-          }
+    navigate("/");
+  } else {
+    const { error } = response.data;
 
-          // Редирект на главную страницу или в профиль
-          if (loginType === "address") {
-            navigate("/"); // Главная страница
-          } else {
-            navigate("/profile"); // Профиль пользователя
-          }
-        } else {
-          toast({
-            title: "Ошибка",
-            description: response.data.error || "Не удалось войти",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        toast({
-          title: "Ошибка",
-          description: "Произошла ошибка при подключении к серверу",
-          variant: "destructive",
-        });
-      }
+    if (error === "Пользователь не найден") {
+      toast({
+        title: "Пользователь не найден",
+        description:
+          loginType === "address"
+            ? "Проверьте адрес и номер договора"
+            : "Проверьте номер лицевого счёта",
+        variant: "destructive",
+      });
+    } else if (error === "Неверный формат данных") {
+      toast({
+        title: "Ошибка валидации",
+        description: "Некорректные поля. Проверьте и попробуйте снова.",
+        variant: "destructive",
+      });
     } else {
       toast({
         title: "Ошибка",
-        description: "Пожалуйста, заполните все поля",
+        description: error || "Неизвестная ошибка",
         variant: "destructive",
       });
     }
-  };
+  }
+} catch (err: any) {
+  if (axios.isAxiosError(err) && err.response) {
+    const status = err.response.status;
+    const { error, code } = err.response.data || {};
+
+    switch (status) {
+      case 400:
+        if (code === "missing_fields") {
+          toast({
+            title: "Недостаточно данных",
+            description: "Пожалуйста, заполните все обязательные поля для входа по адресу.",
+            variant: "destructive",
+          });
+        } else if (code === "missing_account_number") {
+          toast({
+            title: "Отсутствует номер счета",
+            description: "Укажите номер лицевого счёта для входа.",
+            variant: "destructive",
+          });
+        } else if (code === "invalid_login_type") {
+          toast({
+            title: "Неверный тип входа",
+            description: "Выбран некорректный способ авторизации.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Ошибка 400",
+            description: error || "Некорректный запрос.",
+            variant: "destructive",
+          });
+        }
+        break;
+
+      case 401:
+        if (code === "user_not_found") {
+          toast({
+            title: "Пользователь не найден",
+            description: "Проверьте корректность введённых данных. Пользователь с такими данными отсутствует.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Ошибка авторизации",
+            description: error || "Не удалось выполнить вход.",
+            variant: "destructive",
+          });
+        }
+        break;
+
+      case 404:
+        toast({
+          title: "Ошибка 404",
+          description: "API не найден. Убедитесь, что путь запроса указан верно.",
+          variant: "destructive",
+        });
+        break;
+
+      case 500:
+        toast({
+          title: "Ошибка сервера",
+          description: "Произошла внутренняя ошибка сервера. Попробуйте позже.",
+          variant: "destructive",
+        });
+        break;
+
+      default:
+        toast({
+          title: "Ошибка",
+          description: error || "Произошла неизвестная ошибка. Проверьте данные и повторите попытку.",
+          variant: "destructive",
+        });
+    }
+  } else {
+    toast({
+      title: "Сетевая ошибка",
+      description: "Не удалось установить соединение с сервером. Проверьте интернет или попробуйте позже.",
+      variant: "destructive",
+    });
+  }
+}
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-muted/40">
@@ -195,20 +274,31 @@ const Login = () => {
                 </div>
                 <div className="space-y-2">
                   <Input
-                    placeholder="Номер договора"
-                    value={formData.contract}
-                    onChange={(e) => setFormData({ ...formData, contract: e.target.value })}
-                    maxLength={12}
-                  />
+  placeholder="Номер договора"
+  value={formData.contract}
+  onChange={(e) => {
+    const value = e.target.value;
+    if (/^\d*$/.test(value) && value.length <= 12) {
+      setFormData({ ...formData, contract: value });
+    }
+  }}
+  maxLength={12}
+/>
                 </div>
               </>
             ) : (
               <div className="space-y-2">
                 <Input
-                  placeholder="Номер лицевого счета"
-                  value={formData.accountNumber}
-                  onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                />
+  placeholder="Номер лицевого счета"
+  value={formData.accountNumber}
+  onChange={(e) => {
+    const value = e.target.value;
+    if (/^\d*$/.test(value) && value.length <= 16) {
+      setFormData({ ...formData, accountNumber: value });
+    }
+  }}
+  maxLength={16}
+/>
               </div>
             )}
             <Button type="submit" className="w-full">
