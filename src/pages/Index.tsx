@@ -12,29 +12,27 @@ const Index = () => {
   useEffect(() => {
     setIsSpecialUser(localStorage.getItem("isSpecialUser") === "true");
 
-    // Получаем новости с сервера
     fetch("https://best-yard.onrender.com/api/news")
       .then((res) => res.json())
       .then((data) => setNews(data))
       .catch((error) => console.error("Ошибка загрузки новостей:", error));
 
-    // Получаем userId из localStorage
-    const userId = localStorage.getItem("userId");  // userId из localStorage
+    const userId = localStorage.getItem("userId");  
     if (userId) {
-      fetch(`https://best-yard.onrender.com/api/user/addresses/${userId}`, {  // Получаем адрес по userId
+      fetch(`https://best-yard.onrender.com/api/user/addresses/${userId}`, {  
         method: "GET",
       })
         .then((response) => response.json())
         .then((data) => {
           if (data && data.length > 0) {
-            const address = data[0]; // Выбираем первый адрес, если их несколько
+            const address = data[0]; 
             setUserAddress({
               city: address.city,
               street: address.street,
               house: address.house,
               apartment: address.apartment,
             });
-            localStorage.setItem("userAddress", JSON.stringify(address));  // Сохраняем в localStorage
+            localStorage.setItem("userAddress", JSON.stringify(address));  
           }
         })
         .catch((error) => console.error("Ошибка получения данных пользователя:", error));
@@ -83,17 +81,16 @@ const Index = () => {
       iconColor: "text-purple-500",
     },
     {
-      title: "Скачать приложение",  // Новая карточка для скачивания
+      title: "Скачать приложение",  
       icon: Download,
       description: "Скачайте наше приложение для удобства использования",
-      path: "https://example.com/your-app.apk",  // Ссылка на файл для скачивания
+      path: "https://region42.onrender.com/Region42.apk",  
       color: "bg-gradient-to-br from-blue-50 to-red-100 border-purple-200",
-      iconColor: "text-red-500", // Цвет иконки для скачивания
-      isDownload: true, // Новый флаг для распознавания кнопки скачивания
+      iconColor: "text-red-500", 
+      isDownload: true, 
     },
-  ].filter(Boolean); // Убираем null/false элементы
+  ].filter(Boolean); 
 
-  // Определяем текущий месяц
   const currentMonth = new Date().toLocaleString("ru-RU", { month: "long", year: "numeric" });
 
   return (
@@ -122,9 +119,9 @@ const Index = () => {
             className={`cursor-pointer card-hover border ${item.color} shadow-sm hover:shadow-md transition-all`}
             onClick={() => {
               if (item.isDownload) {
-                window.location.href = item.path; // Скачивание файла
+                window.location.href = item.path; 
               } else {
-                navigate(item.path); // Переход по обычной ссылке
+                navigate(item.path); 
               }
             }}
           >
