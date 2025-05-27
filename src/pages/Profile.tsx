@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ const Profile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccessfully, setSavedSuccessfully] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ... keep existing code (all functions like fetchSuggestions, applySuggestion, useEffect, sendEmailCode, verifyEmailCode, handleSave, handleLogout, handleBackToMain, handlePhoneChange, validatePersonalInfo, validatePhone, validateEmail, handleNextStep)
 
   const fetchSuggestions = async (query: string) => {
     if (!query) {
@@ -370,38 +373,40 @@ const Profile = () => {
       return (
         <>
           <div className="space-y-4 mb-6">
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 flex items-center">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center">
               <Check className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
-              <p className="text-green-800 dark:text-green-200">
+              <p className="text-green-800 dark:text-green-200 font-medium">
                 Профиль завершён и заблокирован для редактирования
               </p>
             </div>
             
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium text-foreground">Фамилия:</span>
-                <span className="text-foreground">{lastName}</span>
+            <div className="space-y-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Фамилия:</span>
+                  <span className="text-lg font-medium text-foreground">{lastName}</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Имя:</span>
+                  <span className="text-lg font-medium text-foreground">{firstName}</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Отчество:</span>
+                  <span className="text-lg font-medium text-foreground">{middleName}</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Телефон:</span>
+                  <span className="text-lg font-medium text-foreground">{phone}</span>
+                </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium text-foreground">Имя:</span>
-                <span className="text-foreground">{firstName}</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium text-foreground">Отчество:</span>
-                <span className="text-foreground">{middleName}</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium text-foreground">Телефон:</span>
-                <span className="text-foreground">{phone}</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium text-foreground">Email:</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-foreground">{email}</span>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Email:</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-medium text-foreground">{email}</span>
                   <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                     <Check className="h-3 w-3 mr-1" />
                     Подтвержден
@@ -428,7 +433,7 @@ const Profile = () => {
                   id: "middleName", label: "Отчество", value: middleName, setValue: setMiddleName
                 }].map(({ id, label, value, setValue }) => (
                   <div key={id} className="relative space-y-2">
-                    <label htmlFor={id} className="text-sm font-medium">{label}</label>
+                    <label htmlFor={id} className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
                     <Input
                       id={id}
                       value={value}
@@ -438,14 +443,15 @@ const Profile = () => {
                         fetchSuggestions(e.target.value);
                       }}
                       placeholder={`Введите ${label.toLowerCase()}`}
+                      className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400"
                     />
                     {activeField === id && suggestions.length > 0 && (
-                      <ul className="absolute z-10 bg-background border shadow rounded w-full mt-1 max-h-40 overflow-y-auto">
+                      <ul className="absolute z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-md w-full mt-1 max-h-40 overflow-y-auto">
                         {suggestions.map((s, i) => (
                           <li
                             key={i}
                             onClick={() => applySuggestion(s.value)}
-                            className="px-3 py-1 cursor-pointer hover:bg-accent"
+                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
                           >
                             {s.value}
                           </li>
@@ -456,7 +462,7 @@ const Profile = () => {
                 ))}
               </div>
             </div>
-            <Button onClick={handleNextStep} className="w-full" disabled={!agreementAccepted}>
+            <Button onClick={handleNextStep} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]" disabled={!agreementAccepted}>
               Продолжить <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </>
@@ -467,17 +473,18 @@ const Profile = () => {
           <>
             <div className="space-y-4 mb-6">
               <div className="space-y-2">
-                <label htmlFor="phone" className="text-sm font-medium">Номер телефона</label>
+                <label htmlFor="phone" className="text-sm font-medium text-gray-700 dark:text-gray-300">Номер телефона</label>
                 <Input
                   id="phone"
                   type="tel"
                   value={phone}
                   onChange={handlePhoneChange}
                   placeholder="+7 (___) ___-__-__"
+                  className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400"
                 />
               </div>
             </div>
-            <Button onClick={handleNextStep} className="w-full">
+            <Button onClick={handleNextStep} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
               Продолжить <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </>
@@ -488,17 +495,18 @@ const Profile = () => {
           <>
             <div className="space-y-4 mb-6">
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">Email</label>
+                <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@email.com"
+                  className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400"
                 />
               </div>
             </div>
-            <Button onClick={handleNextStep} className="w-full">
+            <Button onClick={handleNextStep} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
               Продолжить <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </>
@@ -508,20 +516,21 @@ const Profile = () => {
         return (
           <>
             <div className="space-y-4 mb-6">
-              <p className="text-sm text-muted-foreground">Подтвердите ваш email адрес</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Подтвердите ваш email адрес</p>
               
               {codeSent ? (
                 <div className="space-y-2">
-                  <label htmlFor="emailCode" className="text-sm font-medium">Введите код подтверждения</label>
+                  <label htmlFor="emailCode" className="text-sm font-medium text-gray-700 dark:text-gray-300">Введите код подтверждения</label>
                   <Input
                     id="emailCode"
                     value={emailCode}
                     onChange={(e) => setEmailCode(e.target.value)}
                     placeholder="Введите код"
+                    className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                   <Button 
                     onClick={verifyEmailCode} 
-                    className="w-full mt-2"
+                    className="w-full mt-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     disabled={!emailCode}
                   >
                     Подтвердить код
@@ -530,7 +539,7 @@ const Profile = () => {
               ) : (
                 <Button 
                   onClick={sendEmailCode} 
-                  className="w-full mt-2"
+                  className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Отправить код на почту {email}
                 </Button>
@@ -543,38 +552,40 @@ const Profile = () => {
         return (
           <>
             <div className="space-y-4 mb-6">
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 flex items-center">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center">
                 <Check className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
-                <p className="text-green-800 dark:text-green-200">
+                <p className="text-green-800 dark:text-green-200 font-medium">
                   Все данные заполнены и подтверждены
                 </p>
               </div>
               
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium text-foreground">Фамилия:</span>
-                  <span className="text-foreground">{lastName}</span>
+              <div className="space-y-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Фамилия:</span>
+                    <span className="text-lg font-medium text-foreground">{lastName}</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Имя:</span>
+                    <span className="text-lg font-medium text-foreground">{firstName}</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Отчество:</span>
+                    <span className="text-lg font-medium text-foreground">{middleName}</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Телефон:</span>
+                    <span className="text-lg font-medium text-foreground">{phone}</span>
+                  </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium text-foreground">Имя:</span>
-                  <span className="text-foreground">{firstName}</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium text-foreground">Отчество:</span>
-                  <span className="text-foreground">{middleName}</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium text-foreground">Телефон:</span>
-                  <span className="text-foreground">{phone}</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium text-foreground">Email:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-foreground">{email}</span>
+                <div className="space-y-2">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Email:</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-medium text-foreground">{email}</span>
                     <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                       <Check className="h-3 w-3 mr-1" />
                       Подтвержден
@@ -585,7 +596,7 @@ const Profile = () => {
             </div>
             
             {savedSuccessfully ? (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 flex items-center justify-center">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center justify-center">
                 <Check className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
                 <p className="text-green-800 dark:text-green-200 font-medium">
                   Данные успешно сохранены
@@ -594,7 +605,7 @@ const Profile = () => {
             ) : (
               <Button 
                 onClick={handleSave} 
-                className="w-full"
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                 disabled={isSaving}
               >
                 {isSaving ? (
@@ -628,164 +639,177 @@ const Profile = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-lg">Загрузка профиля...</p>
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-lg font-medium text-gray-900 dark:text-white">Загрузка профиля...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Профиль</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleBackToMain}>
-            <Home className="mr-2 h-4 w-4" />
-            На главную
-          </Button>
-          <Button variant="destructive" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Выйти
-          </Button>
-        </div>
-      </div>
-
-      {userAddresses.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Адреса пользователя</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {userAddresses.map((addr, idx) => (
-              <div key={idx} className="border rounded p-3 bg-muted">
-                <p><span className="font-medium">Город:</span> {addr.city}</p>
-                <p><span className="font-medium">Улица:</span> {addr.street}</p>
-                <p><span className="font-medium">Дом:</span> {addr.house}</p>
-                <p><span className="font-medium">Квартира:</span> {addr.apartment}</p>
-                <p><span className="font-medium">Номер договора:</span> {addr.contract_number}</p>
-                {addr.account_number && (
-                  <p><span className="font-medium">Лицевой счёт:</span> {addr.account_number}</p>
-                )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 p-4">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border-0">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white mb-6">
+            <div className="flex justify-between items-center">
+              <h1 className="text-4xl font-bold tracking-tight">Профиль</h1>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={handleBackToMain} className="bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm">
+                  <Home className="mr-2 h-4 w-4" />
+                  На главную
+                </Button>
+                <Button variant="destructive" onClick={handleLogout} className="bg-red-500/80 hover:bg-red-600/80 backdrop-blur-sm">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Выйти
+                </Button>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {!agreementAccepted && !isProfileLocked && (
-        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10">
-          <CardHeader>
-            <CardTitle className="text-amber-800 dark:text-amber-200">Пользовательское соглашение</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              Для продолжения работы с сервисом необходимо принять пользовательское соглашение.
-            </p>
-            
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="agreement" 
-                checked={agreementAccepted}
-                onCheckedChange={(checked) => setAgreementAccepted(checked === true)}
-              />
-              <label htmlFor="agreement" className="text-sm text-foreground">
-                Я принимаю{" "}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="link" className="p-0 h-auto font-normal text-primary hover:text-primary/80">
-                      пользовательское соглашение
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        Пользовательское соглашение
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 text-sm text-foreground">
-                      <section>
-                        <h3 className="font-semibold mb-2">1. Общие положения</h3>
-                        <p className="text-muted-foreground">
-                          Настоящее Пользовательское соглашение регулирует отношения между пользователем и сервисом. 
-                          Использование сервиса означает полное согласие с условиями данного соглашения.
-                        </p>
-                      </section>
-                      
-                      <section>
-                        <h3 className="font-semibold mb-2">2. Обработка персональных данных</h3>
-                        <p className="text-muted-foreground">
-                          Пользователь соглашается на обработку своих персональных данных в соответствии с действующим 
-                          законодательством. Данные используются исключительно для предоставления услуг сервиса.
-                        </p>
-                      </section>
-                      
-                      <section>
-                        <h3 className="font-semibold mb-2">3. Ответственность сторон</h3>
-                        <p className="text-muted-foreground">
-                          Пользователь несет ответственность за достоверность предоставленной информации. 
-                          Сервис не несет ответственности за возможные убытки, связанные с использованием платформы.
-                        </p>
-                      </section>
-                      
-                      <section>
-                        <h3 className="font-semibold mb-2">4. Изменения соглашения</h3>
-                        <p className="text-muted-foreground">
-                          Администрация оставляет за собой право вносить изменения в данное соглашение. 
-                          Пользователи уведомляются об изменениях через интерфейс сервиса.
-                        </p>
-                      </section>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </label>
             </div>
-            
-            {!agreementAccepted && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                Примите соглашение для продолжения заполнения профиля
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="bg-background shadow-sm rounded-lg overflow-hidden">
-        {!isProfileLocked && (
-          <div className="flex border-b border-border">
-            {[1, 2, 3, 4, 5].map((step) => (
-              <div 
-                key={step}
-                className={`flex-1 text-center py-3 text-xs font-medium
-                  ${step === currentStep ? 
-                    'bg-primary text-primary-foreground' : 
-                    step < currentStep ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200' : 'bg-muted text-muted-foreground'
-                  }
-                  ${step === 1 ? 'rounded-tl-lg' : ''}
-                  ${step === 5 ? 'rounded-tr-lg' : ''}
-                `}
-              >
-                {step < currentStep && <Check className="h-4 w-4 mx-auto" />}
-                {step === currentStep && <span>Шаг {step}</span>}
-                {step > currentStep && <span>Шаг {step}</span>}
-              </div>
-            ))}
           </div>
+        </div>
+
+        {/* User Addresses */}
+        {userAddresses.length > 0 && (
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-200">Адреса пользователя</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {userAddresses.map((addr, idx) => (
+                <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium text-gray-600 dark:text-gray-400">Город:</span> <span className="text-gray-900 dark:text-gray-100">{addr.city}</span></div>
+                    <div><span className="font-medium text-gray-600 dark:text-gray-400">Улица:</span> <span className="text-gray-900 dark:text-gray-100">{addr.street}</span></div>
+                    <div><span className="font-medium text-gray-600 dark:text-gray-400">Дом:</span> <span className="text-gray-900 dark:text-gray-100">{addr.house}</span></div>
+                    <div><span className="font-medium text-gray-600 dark:text-gray-400">Квартира:</span> <span className="text-gray-900 dark:text-gray-100">{addr.apartment}</span></div>
+                    <div><span className="font-medium text-gray-600 dark:text-gray-400">Номер договора:</span> <span className="text-gray-900 dark:text-gray-100">{addr.contract_number}</span></div>
+                    {addr.account_number && (
+                      <div><span className="font-medium text-gray-600 dark:text-gray-400">Лицевой счёт:</span> <span className="text-gray-900 dark:text-gray-100">{addr.account_number}</span></div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         )}
 
-        <Card className="border-0 shadow-none">
-          <CardHeader>
-            <CardTitle>
-              {isProfileLocked ? "Профиль (завершён)" : getStepTitle()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderStepContent()}
-          </CardContent>
-        </Card>
+        {/* Agreement Card */}
+        {!agreementAccepted && !isProfileLocked && (
+          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-2xl border-l-4 border-l-amber-500">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Пользовательское соглашение
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-amber-700 dark:text-amber-300">
+                Для продолжения работы с сервисом необходимо принять пользовательское соглашение.
+              </p>
+              
+              <div className="flex items-center space-x-3 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Checkbox 
+                  id="agreement" 
+                  checked={agreementAccepted}
+                  onCheckedChange={(checked) => setAgreementAccepted(checked === true)}
+                />
+                <label htmlFor="agreement" className="text-sm text-foreground">
+                  Я принимаю{" "}
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="link" className="p-0 h-auto font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                        пользовательское соглашение
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <FileText className="h-5 w-5" />
+                          Пользовательское соглашение
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 text-sm text-foreground">
+                        <section>
+                          <h3 className="font-semibold mb-2">1. Общие положения</h3>
+                          <p className="text-muted-foreground">
+                            Настоящее Пользовательское соглашение регулирует отношения между пользователем и сервисом. 
+                            Использование сервиса означает полное согласие с условиями данного соглашения.
+                          </p>
+                        </section>
+                        
+                        <section>
+                          <h3 className="font-semibold mb-2">2. Обработка персональных данных</h3>
+                          <p className="text-muted-foreground">
+                            Пользователь соглашается на обработку своих персональных данных в соответствии с действующим 
+                            законодательством. Данные используются исключительно для предоставления услуг сервиса.
+                          </p>
+                        </section>
+                        
+                        <section>
+                          <h3 className="font-semibold mb-2">3. Ответственность сторон</h3>
+                          <p className="text-muted-foreground">
+                            Пользователь несет ответственность за достоверность предоставленной информации. 
+                            Сервис не несет ответственности за возможные убытки, связанные с использованием платформы.
+                          </p>
+                        </section>
+                        
+                        <section>
+                          <h3 className="font-semibold mb-2">4. Изменения соглашения</h3>
+                          <p className="text-muted-foreground">
+                            Администрация оставляет за собой право вносить изменения в данное соглашение. 
+                            Пользователи уведомляются об изменениях через интерфейс сервиса.
+                          </p>
+                        </section>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </label>
+              </div>
+              
+              {!agreementAccepted && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Примите соглашение для продолжения заполнения профиля
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Main Form Card */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl border-0 overflow-hidden">
+          {!isProfileLocked && (
+            <div className="flex border-b border-gray-200 dark:border-gray-700">
+              {[1, 2, 3, 4, 5].map((step) => (
+                <div 
+                  key={step}
+                  className={`flex-1 text-center py-4 text-xs font-medium transition-all
+                    ${step === currentStep ? 
+                      'bg-gradient-to-r from-blue-600 to-indigo-600 text-white' : 
+                      step < currentStep ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' : 'bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
+                    }
+                  `}
+                >
+                  {step < currentStep && <Check className="h-4 w-4 mx-auto" />}
+                  {step === currentStep && <span className="font-semibold">Шаг {step}</span>}
+                  {step > currentStep && <span>Шаг {step}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Card className="border-0 shadow-none bg-transparent">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                {isProfileLocked ? "Профиль (завершён)" : getStepTitle()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {renderStepContent()}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
