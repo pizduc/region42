@@ -1,12 +1,13 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, Home, Check, ArrowRight, Loader2 } from "lucide-react";
+import { LogOut, Home, Check, ArrowRight, Loader2, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -14,7 +15,8 @@ const Profile = () => {
 
   const userId = localStorage.getItem("userId");
 
-  // States for user data
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
+
   const [userAddresses, setUserAddresses] = useState<any[]>([]);
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -25,12 +27,10 @@ const Profile = () => {
   const [activeField, setActiveField] = useState("");
   const [isProfileLocked, setIsProfileLocked] = useState(false);
 
-  // Email verification
   const [emailCode, setEmailCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
 
-  // Step management
   const [currentStep, setCurrentStep] = useState(1);
   const [stepsCompleted, setStepsCompleted] = useState({
     personalInfo: false,
@@ -39,7 +39,6 @@ const Profile = () => {
     emailVerification: false
   });
 
-  // Save state
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccessfully, setSavedSuccessfully] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +71,6 @@ const Profile = () => {
 
   useEffect(() => {
     if (!userId) {
-      // Redirect to login if no userId found
       navigate("/login");
       return;
     }
@@ -96,11 +94,9 @@ const Profile = () => {
         setPhone(phone || "");
         setEmail(email || "");
 
-        // Set email verification status based on the email_verified field from API
         if (email_verified) {
           console.log("Email is verified:", email_verified);
           setIsEmailVerified(true);
-          // Update steps completion to reflect email verification
           setStepsCompleted(prev => ({
             ...prev,
             emailVerification: true,
@@ -108,25 +104,23 @@ const Profile = () => {
           }));
         }
 
-        // Check if profile is complete and lock it
         if (is_profile_complete) {
           setIsProfileLocked(true);
           setSavedSuccessfully(true);
+          setAgreementAccepted(true); 
         }
-        
-        // Check which steps are already completed from saved data
+
         const completedSteps = {
           personalInfo: !!(last_name && first_name && middle_name),
-          phone: !!phone && phone.length >= 18, // +7 (XXX) XXX-XX-XX
+          phone: !!phone && phone.length >= 18, 
           email: !!email,
           emailVerification: !!email_verified
         };
         
         setStepsCompleted(completedSteps);
-        
-        // Set current step based on completed data
+
         if (is_profile_complete) {
-          setCurrentStep(5); // Show final step for completed profiles
+          setCurrentStep(5);
         } else if (!completedSteps.personalInfo) {
           setCurrentStep(1);
         } else if (!completedSteps.phone) {
@@ -136,7 +130,6 @@ const Profile = () => {
         } else if (!completedSteps.emailVerification) {
           setCurrentStep(4);
         } else {
-          // All steps completed - show the final state
           setCurrentStep(5); 
         }
       })
@@ -252,8 +245,8 @@ const Profile = () => {
       middleName,
       phone,
       email,
-      isEmailVerified, // Send verification status to API
-      isProfileComplete: true // Mark profile as complete
+      isEmailVerified, 
+      isProfileComplete: true 
     };
 
     fetch("https://best-yard.onrender.com/api/user/profile", {
@@ -268,7 +261,7 @@ const Profile = () => {
           description: "Данные успешно сохранены",
         });
         setSavedSuccessfully(true);
-        setIsProfileLocked(true); // Lock profile after successful save
+        setIsProfileLocked(true);
       })
       .catch((error) => {
         console.error("Ошибка:", error);
@@ -310,7 +303,6 @@ const Profile = () => {
     setPhone(value);
   };
 
-  // Step validation functions
   const validatePersonalInfo = () => {
     if (!lastName.trim() || !firstName.trim() || !middleName.trim()) {
       toast({ 
@@ -375,43 +367,42 @@ const Profile = () => {
 
   const renderStepContent = () => {
     if (isProfileLocked) {
-      // When profile is locked, always show read-only view
       return (
         <>
           <div className="space-y-4 mb-6">
-            <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center">
-              <Check className="h-5 w-5 text-green-600 mr-2" />
-              <p className="text-green-800">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 flex items-center">
+              <Check className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
+              <p className="text-green-800 dark:text-green-200">
                 Профиль завершён и заблокирован для редактирования
               </p>
             </div>
             
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium">Фамилия:</span>
-                <span>{lastName}</span>
+                <span className="text-sm font-medium text-foreground">Фамилия:</span>
+                <span className="text-foreground">{lastName}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium">Имя:</span>
-                <span>{firstName}</span>
+                <span className="text-sm font-medium text-foreground">Имя:</span>
+                <span className="text-foreground">{firstName}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium">Отчество:</span>
-                <span>{middleName}</span>
+                <span className="text-sm font-medium text-foreground">Отчество:</span>
+                <span className="text-foreground">{middleName}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium">Телефон:</span>
-                <span>{phone}</span>
+                <span className="text-sm font-medium text-foreground">Телефон:</span>
+                <span className="text-foreground">{phone}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-2">
-                <span className="text-sm font-medium">Email:</span>
+                <span className="text-sm font-medium text-foreground">Email:</span>
                 <div className="flex items-center gap-2">
-                  <span>{email}</span>
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <span className="text-foreground">{email}</span>
+                  <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                     <Check className="h-3 w-3 mr-1" />
                     Подтвержден
                   </Badge>
@@ -449,12 +440,12 @@ const Profile = () => {
                       placeholder={`Введите ${label.toLowerCase()}`}
                     />
                     {activeField === id && suggestions.length > 0 && (
-                      <ul className="absolute z-10 bg-white border shadow rounded w-full mt-1 max-h-40 overflow-y-auto">
+                      <ul className="absolute z-10 bg-background border shadow rounded w-full mt-1 max-h-40 overflow-y-auto">
                         {suggestions.map((s, i) => (
                           <li
                             key={i}
                             onClick={() => applySuggestion(s.value)}
-                            className="px-3 py-1 cursor-pointer hover:bg-gray-100"
+                            className="px-3 py-1 cursor-pointer hover:bg-accent"
                           >
                             {s.value}
                           </li>
@@ -465,7 +456,7 @@ const Profile = () => {
                 ))}
               </div>
             </div>
-            <Button onClick={handleNextStep} className="w-full">
+            <Button onClick={handleNextStep} className="w-full" disabled={!agreementAccepted}>
               Продолжить <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </>
@@ -517,7 +508,7 @@ const Profile = () => {
         return (
           <>
             <div className="space-y-4 mb-6">
-              <p className="text-sm text-slate-600">Подтвердите ваш email адрес</p>
+              <p className="text-sm text-muted-foreground">Подтвердите ваш email адрес</p>
               
               {codeSent ? (
                 <div className="space-y-2">
@@ -552,39 +543,39 @@ const Profile = () => {
         return (
           <>
             <div className="space-y-4 mb-6">
-              <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center">
-                <Check className="h-5 w-5 text-green-600 mr-2" />
-                <p className="text-green-800">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 flex items-center">
+                <Check className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
+                <p className="text-green-800 dark:text-green-200">
                   Все данные заполнены и подтверждены
                 </p>
               </div>
               
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium">Фамилия:</span>
-                  <span>{lastName}</span>
+                  <span className="text-sm font-medium text-foreground">Фамилия:</span>
+                  <span className="text-foreground">{lastName}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium">Имя:</span>
-                  <span>{firstName}</span>
+                  <span className="text-sm font-medium text-foreground">Имя:</span>
+                  <span className="text-foreground">{firstName}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium">Отчество:</span>
-                  <span>{middleName}</span>
+                  <span className="text-sm font-medium text-foreground">Отчество:</span>
+                  <span className="text-foreground">{middleName}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium">Телефон:</span>
-                  <span>{phone}</span>
+                  <span className="text-sm font-medium text-foreground">Телефон:</span>
+                  <span className="text-foreground">{phone}</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
-                  <span className="text-sm font-medium">Email:</span>
+                  <span className="text-sm font-medium text-foreground">Email:</span>
                   <div className="flex items-center gap-2">
-                    <span>{email}</span>
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <span className="text-foreground">{email}</span>
+                    <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800">
                       <Check className="h-3 w-3 mr-1" />
                       Подтвержден
                     </Badge>
@@ -594,9 +585,9 @@ const Profile = () => {
             </div>
             
             {savedSuccessfully ? (
-              <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center justify-center">
-                <Check className="h-5 w-5 text-green-600 mr-2" />
-                <p className="text-green-800 font-medium">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 flex items-center justify-center">
+                <Check className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
+                <p className="text-green-800 dark:text-green-200 font-medium">
                   Данные успешно сохранены
                 </p>
               </div>
@@ -684,17 +675,94 @@ const Profile = () => {
         </Card>
       )}
 
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-        {/* Step indicators - only show if profile is not locked */}
+      {!agreementAccepted && !isProfileLocked && (
+        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10">
+          <CardHeader>
+            <CardTitle className="text-amber-800 dark:text-amber-200">Пользовательское соглашение</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              Для продолжения работы с сервисом необходимо принять пользовательское соглашение.
+            </p>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="agreement" 
+                checked={agreementAccepted}
+                onCheckedChange={(checked) => setAgreementAccepted(checked === true)}
+              />
+              <label htmlFor="agreement" className="text-sm text-foreground">
+                Я принимаю{" "}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="link" className="p-0 h-auto font-normal text-primary hover:text-primary/80">
+                      пользовательское соглашение
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Пользовательское соглашение
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 text-sm text-foreground">
+                      <section>
+                        <h3 className="font-semibold mb-2">1. Общие положения</h3>
+                        <p className="text-muted-foreground">
+                          Настоящее Пользовательское соглашение регулирует отношения между пользователем и сервисом. 
+                          Использование сервиса означает полное согласие с условиями данного соглашения.
+                        </p>
+                      </section>
+                      
+                      <section>
+                        <h3 className="font-semibold mb-2">2. Обработка персональных данных</h3>
+                        <p className="text-muted-foreground">
+                          Пользователь соглашается на обработку своих персональных данных в соответствии с действующим 
+                          законодательством. Данные используются исключительно для предоставления услуг сервиса.
+                        </p>
+                      </section>
+                      
+                      <section>
+                        <h3 className="font-semibold mb-2">3. Ответственность сторон</h3>
+                        <p className="text-muted-foreground">
+                          Пользователь несет ответственность за достоверность предоставленной информации. 
+                          Сервис не несет ответственности за возможные убытки, связанные с использованием платформы.
+                        </p>
+                      </section>
+                      
+                      <section>
+                        <h3 className="font-semibold mb-2">4. Изменения соглашения</h3>
+                        <p className="text-muted-foreground">
+                          Администрация оставляет за собой право вносить изменения в данное соглашение. 
+                          Пользователи уведомляются об изменениях через интерфейс сервиса.
+                        </p>
+                      </section>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </label>
+            </div>
+            
+            {!agreementAccepted && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Примите соглашение для продолжения заполнения профиля
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="bg-background shadow-sm rounded-lg overflow-hidden">
         {!isProfileLocked && (
-          <div className="flex border-b">
+          <div className="flex border-b border-border">
             {[1, 2, 3, 4, 5].map((step) => (
               <div 
                 key={step}
                 className={`flex-1 text-center py-3 text-xs font-medium
                   ${step === currentStep ? 
                     'bg-primary text-primary-foreground' : 
-                    step < currentStep ? 'bg-green-100 text-green-800' : 'bg-gray-50 text-gray-400'
+                    step < currentStep ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200' : 'bg-muted text-muted-foreground'
                   }
                   ${step === 1 ? 'rounded-tl-lg' : ''}
                   ${step === 5 ? 'rounded-tr-lg' : ''}
@@ -708,7 +776,6 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Step content */}
         <Card className="border-0 shadow-none">
           <CardHeader>
             <CardTitle>
