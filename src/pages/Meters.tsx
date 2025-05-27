@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Droplet, Flame, Zap, Home } from "lucide-react";
@@ -18,21 +19,21 @@ const Meters = () => {
     icon: <Droplet className="h-5 w-5" />,
     value: 0,
     step: 0.1,
-    color: "bg-blue-500"
+    color: "bg-gradient-to-r from-blue-500 to-cyan-500"
   }, {
     id: "hot_water",
     title: "Счетчик горячей воды",
     icon: <Flame className="h-5 w-5" />,
     value: 0,
     step: 0.1,
-    color: "bg-red-500"
+    color: "bg-gradient-to-r from-red-500 to-orange-500"
   }, {
     id: "electricity",
     title: "Счетчик электрической энергии",
     icon: <Zap className="h-5 w-5" />,
     value: 0,
     step: 1,
-    color: "bg-yellow-500"
+    color: "bg-gradient-to-r from-yellow-500 to-amber-500"
   }]);
 
   useEffect(() => {
@@ -69,11 +70,11 @@ const Meters = () => {
           return;
         }
 
-        if (data.currentReadings) {  // ✅ Используем правильное поле
+        if (data.currentReadings) {
           setMeters((prevMeters) =>
             prevMeters.map((meter) => ({
               ...meter,
-              value: parseFloat(data.currentReadings[meter.id]) || meter.value, // ✅ Берем из currentReadings
+              value: parseFloat(data.currentReadings[meter.id]) || meter.value,
             }))
           );
           toast({
@@ -127,17 +128,16 @@ const Meters = () => {
       return;
     }
   
-    const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');  // формат: "YYYY-MM-DD HH:MM:SS"
+    const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
   
     const payload = {
       userId,
       coldWater: meters.find((m) => m.id === "cold_water")?.value ?? 0,
       hotWater: meters.find((m) => m.id === "hot_water")?.value ?? 0,
       electricity: meters.find((m) => m.id === "electricity")?.value ?? 0,
-      readingDate: currentDate,  // заменяем на readingDate
+      readingDate: currentDate,
     };    
   
-    // Проверка данных перед отправкой
     if (payload.coldWater === 0 && payload.hotWater === 0 && payload.electricity === 0) {
       toast({
         title: "Ошибка",
@@ -185,67 +185,307 @@ const Meters = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Показания счетчиков</h1>
-        <Button variant="outline" onClick={handleBackToMain}>
-          <Home className="mr-2 h-4 w-4" />
-          На главную
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20">
+      <div className="hidden lg:flex min-h-screen">
+        <div className="w-80 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-r border-gray-200 dark:border-gray-700 shadow-xl">
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <Zap className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Показания счетчиков</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Внесите текущие показания</p>
+              </div>
+            </div>
+
+            <Button 
+              variant="outline" 
+              onClick={handleBackToMain} 
+              className="w-full mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:bg-white dark:hover:bg-gray-800"
+            >
+              <Home className="mr-2 h-4 w-4" />
+              На главную
+            </Button>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Статистика</h3>
+              {meters.map((meter) => (
+                <div key={meter.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    {meter.icon}
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {meter.id === 'cold_water' && 'Холодная вода'}
+                      {meter.id === 'hot_water' && 'Горячая вода'}
+                      {meter.id === 'electricity' && 'Электричество'}
+                    </span>
+                  </div>
+                  <span className="text-sm font-mono font-bold text-gray-900 dark:text-gray-100">
+                    {Number(meter.value).toFixed(3)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 p-8">
+          <div className="max-w-4xl mx-auto">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {meters.map((meter) => (
+                <Card key={meter.id} className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm overflow-hidden transition-all hover:shadow-3xl hover:scale-[1.02]">
+                  <CardHeader className={`${meter.color} text-white flex flex-row items-center py-6 px-6`}>
+                    <CardTitle className="flex items-center gap-3 text-xl font-semibold">
+                      <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                        {meter.icon}
+                      </div>
+                      <span className="truncate">{meter.title}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="space-y-6">
+                      <div className="flex justify-center">
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-2 border-gray-200 dark:border-gray-500 rounded-xl px-8 py-6 shadow-inner">
+                          <div className="text-4xl font-mono font-bold text-gray-800 dark:text-gray-100 text-center min-w-[160px]">
+                            {Number(meter.value).toFixed(3)}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
+                            {meter.id === 'electricity' ? 'кВт·ч' : 'м³'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="text-center text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Изменить показания
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleIncrement(meter.id, meter.step * 100)}
+                            className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 transition-all transform hover:scale-[1.05] active:scale-[0.95] font-semibold py-3"
+                          >
+                            +{meter.step * 100}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleIncrement(meter.id, meter.step * 10)}
+                            className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 transition-all transform hover:scale-[1.05] active:scale-[0.95] font-semibold py-3"
+                          >
+                            +{meter.step * 10}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleIncrement(meter.id, meter.step)}
+                            className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 transition-all transform hover:scale-[1.05] active:scale-[0.95] font-semibold py-3"
+                          >
+                            +{meter.step}
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleDecrement(meter.id, meter.step * 100)}
+                            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 hover:text-red-800 transition-all transform hover:scale-[1.05] active:scale-[0.95] font-semibold py-3"
+                          >
+                            -{meter.step * 100}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleDecrement(meter.id, meter.step * 10)}
+                            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 hover:text-red-800 transition-all transform hover:scale-[1.05] active:scale-[0.95] font-semibold py-3"
+                          >
+                            -{meter.step * 10}
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => handleDecrement(meter.id, meter.step)}
+                            className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 hover:text-red-800 transition-all transform hover:scale-[1.05] active:scale-[0.95] font-semibold py-3"
+                          >
+                            -{meter.step}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              <div className="xl:col-span-2 pt-4">
+                <Button 
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-4 text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Сохранение...
+                    </div>
+                  ) : (
+                    <>
+                      <Zap className="w-5 h-5 mr-2" />
+                      Подтвердить ввод показаний
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+
+            <div className="text-center mt-8 text-sm text-gray-500 dark:text-gray-400">
+              <p>Показания принимаются ежемесячно до 25 числа</p>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      <div className="max-w-2xl mx-auto">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {meters.map((meter) => (
-            <Card key={meter.id} className="overflow-hidden">
-              <CardHeader className={`${meter.color} text-white rounded-t-lg flex flex-row items-center py-3`}>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  {meter.icon}
-                  {meter.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 pb-4">
-                <div className="space-y-3">
-                  <div className="w-full flex justify-center">
-                    <div className="text-3xl font-mono bg-white border rounded-md px-4 py-2 w-40 text-center">
-                      {Number(meter.value).toFixed(3)}
+
+      <div className="lg:hidden">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full mb-4 shadow-lg">
+              <Zap className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+              Показания счетчиков
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Внесите текущие показания приборов учета
+            </p>
+          </div>
+
+          <div className="flex justify-center mb-8">
+            <Button 
+              variant="outline" 
+              onClick={handleBackToMain} 
+              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg hover:bg-white dark:hover:bg-gray-800 transition-all transform hover:scale-[1.02]"
+            >
+              <Home className="mr-2 h-4 w-4" />
+              На главную
+            </Button>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {meters.map((meter) => (
+              <Card key={meter.id} className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm overflow-hidden transition-all hover:shadow-3xl hover:scale-[1.01]">
+                <CardHeader className={`${meter.color} text-white flex flex-row items-center py-4 px-6`}>
+                  <CardTitle className="flex items-center gap-3 text-lg md:text-xl font-semibold">
+                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                      {meter.icon}
+                    </div>
+                    <span className="truncate">{meter.title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-6">
+                    <div className="flex justify-center">
+                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 border-2 border-gray-200 dark:border-gray-500 rounded-xl px-6 py-4 shadow-inner">
+                        <div className="text-3xl md:text-4xl font-mono font-bold text-gray-800 dark:text-gray-100 text-center min-w-[140px]">
+                          {Number(meter.value).toFixed(3)}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">
+                          {meter.id === 'electricity' ? 'кВт·ч' : 'м³'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="text-center text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
+                        Изменить показания
+                      </div>
+                     
+                      <div className="grid grid-cols-3 gap-3">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => handleIncrement(meter.id, meter.step * 100)}
+                          className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold"
+                        >
+                          +{meter.step * 100}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => handleIncrement(meter.id, meter.step * 10)}
+                          className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold"
+                        >
+                          +{meter.step * 10}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => handleIncrement(meter.id, meter.step)}
+                          className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold"
+                        >
+                          +{meter.step}
+                        </Button>
+                      </div>
+                
+                      <div className="grid grid-cols-3 gap-3">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => handleDecrement(meter.id, meter.step * 100)}
+                          className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 hover:text-red-800 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold"
+                        >
+                          -{meter.step * 100}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => handleDecrement(meter.id, meter.step * 10)}
+                          className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 hover:text-red-800 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold"
+                        >
+                          -{meter.step * 10}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => handleDecrement(meter.id, meter.step)}
+                          className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700 hover:text-red-800 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold"
+                        >
+                          -{meter.step}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-3 gap-2 w-full">
-                    <Button type="button" variant="outline" onClick={() => handleIncrement(meter.id, meter.step * 100)}>
-                      +{meter.step * 100}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => handleIncrement(meter.id, meter.step * 10)}>
-                      +{meter.step * 10}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => handleIncrement(meter.id, meter.step)}>
-                      +{meter.step}
-                    </Button>
-                    
-                    <Button type="button" variant="outline" onClick={() => handleDecrement(meter.id, meter.step * 100)}>
-                      -{meter.step * 100}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => handleDecrement(meter.id, meter.step * 10)}>
-                      -{meter.step * 10}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => handleDecrement(meter.id, meter.step)}>
-                      -{meter.step}
-                    </Button>
+                </CardContent>
+              </Card>
+            ))}
+          
+            <div className="pt-4">
+              <Button 
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-4 text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Сохранение...
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        
-          <Button 
-            type="submit"
-            className="w-full bg-gray-600 hover:bg-gray-700 text-white"
-            disabled={isLoading}
-          >
-            {isLoading ? "Сохранение..." : "Подтвердить ввод"}
-          </Button>
-        </form>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Подтвердить ввод показаний
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+
+          {/* Footer */}
+          <div className="text-center mt-8 text-sm text-gray-500 dark:text-gray-400">
+            <p>Показания принимаются ежемесячно до 25 числа</p>
+          </div>
+        </div>
       </div>
     </div>
   );
