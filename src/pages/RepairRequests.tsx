@@ -1,13 +1,14 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Home, Wrench } from "lucide-react";
+import { Home, Wrench, Calendar, Clock, Phone, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import InputMask from 'react-input-mask';  // Подключаем библиотеку для маски
+import { Label } from "@/components/ui/label";
 
 interface RepairRequest {
   type: string;
@@ -39,15 +40,28 @@ const RepairRequests = () => {
   }, [userId, navigate]);
 
   const requestTypes = [
-    { id: "plumbing", label: "Сантехника" },
-    { id: "electrical", label: "Электрика" },
-    { id: "construction", label: "Строительные работы" },
-    { id: "other", label: "Другое" }
+    { id: "plumbing", label: "Сантехника", icon: "🔧" },
+    { id: "electrical", label: "Электрика", icon: "⚡" },
+    { id: "construction", label: "Строительные работы", icon: "🏗️" },
+    { id: "other", label: "Другое", icon: "🛠️" }
   ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setRequest(prev => ({ ...prev, [name]: value }));
+    if (name === "phone") {
+      let cleaned = value.replace(/\D/g, "");
+      if (cleaned.startsWith("7")) cleaned = cleaned.substring(1);
+      if (cleaned.length <= 10) {
+        let formatted = "+7";
+        if (cleaned.length > 0) formatted += " (" + cleaned.substring(0, 3);
+        if (cleaned.length >= 4) formatted += ") " + cleaned.substring(3, 6);
+        if (cleaned.length >= 7) formatted += "-" + cleaned.substring(6, 8);
+        if (cleaned.length >= 9) formatted += "-" + cleaned.substring(8, 10);
+        setRequest(prev => ({ ...prev, [name]: formatted }));
+      }
+    } else {
+      setRequest(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSelectChange = (value: string) => {
@@ -66,10 +80,10 @@ const RepairRequests = () => {
       return;
     }
 
-    if (!request.phone) {
+    if (!request.phone || request.phone.length < 10) {
       toast({
         title: "Ошибка",
-        description: "Пожалуйста, укажите номер телефона",
+        description: "Пожалуйста, укажите корректный номер телефона",
         variant: "destructive",
       });
       return;
@@ -105,7 +119,7 @@ const RepairRequests = () => {
         description: "",
         date: "",
         time: "",
-        phone: userData?.phone || "",
+        phone: "",
       });
 
     } catch (error: any) {
@@ -125,121 +139,159 @@ const RepairRequests = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Заявки на ремонт</h1>
-        <Button variant="outline" onClick={handleBackToMain}>
-          <Home className="mr-2 h-4 w-4" />
-          На главную
-        </Button>
-      </div>
-
-      <div className="max-w-2xl mx-auto">
-        <Card className="border-primary/20">
-          <CardHeader className="bg-secondary/20">
-            <CardTitle className="flex items-center gap-2">
-              <Wrench className="h-5 w-5" />
-              Создать заявку
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="type" className="text-sm font-medium">
-                  Тип проблемы
-                </label>
-                <Select
-                  value={request.type}
-                  onValueChange={handleSelectChange}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Выберите тип проблемы" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {requestTypes.map(type => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 p-4">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-0">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg">
+                <Wrench className="h-8 w-8" />
               </div>
-
-              <div className="space-y-2">
-                <label htmlFor="description" className="text-sm font-medium">
-                  Описание проблемы
-                </label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={request.description}
-                  onChange={handleChange}
-                  placeholder="Опишите вашу проблему подробнее..."
-                  className="min-h-[100px]"
-                  required
-                />
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  Заявки на ремонт
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Оформите заявку на устранение неисправностей
+                </p>
               </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleBackToMain}
+              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-all"
+            >
+              <Home className="mr-2 h-4 w-4" />
+              На главную
+            </Button>
+          </div>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="date" className="text-sm font-medium">
-                    Предпочтительная дата (необязательно)
-                  </label>
-                  <Input
-                    type="date"
-                    id="date"
-                    name="date"
-                    value={request.date}
+        <div className="max-w-2xl mx-auto">
+          <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm overflow-hidden">
+            <div className="h-2 bg-gradient-to-r from-orange-500 to-red-500"></div>
+            
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400">
+                  <Wrench className="h-5 w-5" />
+                </div>
+                Создать заявку
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Тип проблемы
+                  </Label>
+                  <Select value={request.type} onValueChange={handleSelectChange}>
+                    <SelectTrigger className="w-full transition-all focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800">
+                      <SelectValue placeholder="Выберите тип проблемы" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      {requestTypes.map(type => (
+                        <SelectItem 
+                          key={type.id} 
+                          value={type.id}
+                          className="hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>{type.icon}</span>
+                            {type.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Описание проблемы
+                  </Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={request.description}
                     onChange={handleChange}
+                    placeholder="Опишите вашу проблему подробнее..."
+                    className="min-h-[120px] transition-all focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 resize-none"
+                    required
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="time" className="text-sm font-medium">
-                    Предпочтительное время (необязательно)
-                  </label>
-                  <Input
-                    type="time"
-                    id="time"
-                    name="time"
-                    value={request.time}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="phone" className="text-sm font-medium">
-                  Номер телефона
-                </label>
-                <InputMask
-                  mask="+7 (999) 999-99-99"
-                  value={request.phone || ""}
-                  onChange={handleChange}
-                >
-                  {(inputProps: any) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Предпочтительная дата
+                    </Label>
                     <Input
-                      {...inputProps}
-                      id="phone"
-                      name="phone"
-                      placeholder="+7 (___) ___-__-__"
-                      required
+                      type="date"
+                      id="date"
+                      name="date"
+                      value={request.date}
+                      onChange={handleChange}
+                      className="transition-all focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800"
                     />
-                  )}
-                </InputMask>
-              </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Необязательно</p>
+                  </div>
 
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Отправка..." : "Отправить заявку"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Предпочтительное время
+                    </Label>
+                    <Input
+                      type="time"
+                      id="time"
+                      name="time"
+                      value={request.time}
+                      onChange={handleChange}
+                      className="transition-all focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Необязательно</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
+                    Номер телефона
+                  </Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={request.phone}
+                    onChange={handleChange}
+                    placeholder="+7 (___) ___-__-__"
+                    className="transition-all focus:ring-2 focus:ring-orange-500 bg-white dark:bg-gray-800 font-mono"
+                    required
+                  />
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+                  disabled={isSubmitting}
+                >
+                  <Wrench className="w-5 h-5 mr-2" />
+                  {isSubmitting ? "Отправка..." : "Отправить заявку"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="text-center py-6">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            Заявки обрабатываются в рабочие дни с 9:00 до 18:00
+          </p>
+        </div>
       </div>
     </div>
   );
