@@ -1,314 +1,218 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
+
+import { useState, useEffect } from "react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { AddressAutocomplete } from "@/components/AddressAutocomplete";
-import axios from "axios";
+import { Check, ChevronsUpDown, MapPin, Building, Home, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const Login = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [loginType, setLoginType] = useState<"address" | "account">("address");
-  const [formData, setFormData] = useState({
-    city: "",
-    street: "",
-    house: "",
-    apartment: "",
-    contract: "",
-    accountNumber: "",
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const requiredFields = loginType === "address"
-      ? ["city", "street", "house", "apartment", "contract"]
-      : ["accountNumber"];
-
-    const houseNum = parseInt(formData.house);
-    if (loginType === "address" && (isNaN(houseNum) || houseNum > 300)) {
-      toast({
-        title: "Ошибка",
-        description: "Номер дома должен быть не более 300",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const apartmentNum = parseInt(formData.apartment);
-    if (loginType === "address" && (isNaN(apartmentNum) || apartmentNum > 500)) {
-      toast({
-        title: "Ошибка",
-        description: "Номер квартиры должен быть не более 500",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (loginType === "address" && formData.contract.length !== 12) {
-      toast({
-        title: "Ошибка",
-        description: "Номер договора должен состоять из 12 символов",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (loginType === "account" && formData.accountNumber.length !== 16) {
-  toast({
-    title: "Ошибка",
-    description: "Номер лицевого счёта должен состоять из 16 символов",
-    variant: "destructive",
-  });
-  return;
+interface AddressAutocompleteProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  type: "locality" | "street" | "house";
+  cityValue?: string;
+  streetValue?: string;
+  inputClassName?: string;
 }
 
-    // Проверяем, что все обязательные поля заполнены
-   try {
-  const response = await axios.post("https://best-yard.onrender.com/api/login", {
-    loginType,
-    ...formData,
-  });
+export function AddressAutocomplete({
+  value,
+  onChange,
+  placeholder,
+  type,
+  cityValue,
+  streetValue,
+  inputClassName,
+}: AddressAutocompleteProps) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value || "");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
-  if (response.data.success) {
-    const { userId, isSpecialUser } = response.data;
-
-    localStorage.setItem("userId", userId);
-    localStorage.setItem("isSpecialUser", isSpecialUser.toString());
-    localStorage.setItem("userAddress", JSON.stringify(formData));
-
-    toast({
-      title: "Успешный вход",
-      description: isSpecialUser
-        ? "Добро пожаловать (особый пользователь)"
-        : "Добро пожаловать в личный кабинет",
-    });
-
-    navigate("/");
-  } else {
-    const { error } = response.data;
-
-    if (error === "Пользователь не найден") {
-      toast({
-        title: "Пользователь не найден",
-        description:
-          loginType === "address"
-            ? "Проверьте адрес и номер договора"
-            : "Проверьте номер лицевого счёта",
-        variant: "destructive",
-      });
-    } else if (error === "Неверный формат данных") {
-      toast({
-        title: "Ошибка валидации",
-        description: "Некорректные поля. Проверьте и попробуйте снова.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Ошибка",
-        description: error || "Неизвестная ошибка",
-        variant: "destructive",
-      });
-    }
-  }
-} catch (err: any) {
-  if (axios.isAxiosError(err) && err.response) {
-    const status = err.response.status;
-    const { error, code } = err.response.data || {};
-
-    switch (status) {
-      case 400:
-        if (code === "missing_fields") {
-          toast({
-            title: "Недостаточно данных",
-            description: "Пожалуйста, заполните все обязательные поля для входа по адресу.",
-            variant: "destructive",
-          });
-        } else if (code === "missing_account_number") {
-          toast({
-            title: "Отсутствует номер счета",
-            description: "Укажите номер лицевого счёта для входа.",
-            variant: "destructive",
-          });
-        } else if (code === "invalid_login_type") {
-          toast({
-            title: "Неверный тип входа",
-            description: "Выбран некорректный способ авторизации.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Ошибка 400",
-            description: error || "Некорректный запрос.",
-            variant: "destructive",
-          });
-        }
-        break;
-
-      case 401:
-        if (code === "user_not_found") {
-          toast({
-            title: "Пользователь не найден",
-            description: "Проверьте корректность введённых данных. Пользователь с такими данными отсутствует.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Ошибка авторизации",
-            description: error || "Не удалось выполнить вход.",
-            variant: "destructive",
-          });
-        }
-        break;
-
-      case 404:
-        toast({
-          title: "Ошибка 404",
-          description: "API не найден. Убедитесь, что путь запроса указан верно.",
-          variant: "destructive",
-        });
-        break;
-
-      case 500:
-        toast({
-          title: "Ошибка сервера",
-          description: "Произошла внутренняя ошибка сервера. Попробуйте позже.",
-          variant: "destructive",
-        });
-        break;
-
+  const getIcon = () => {
+    switch (type) {
+      case "locality":
+        return <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
+      case "street":
+        return <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
+      case "house":
+        return <Home className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
       default:
-        toast({
-          title: "Ошибка",
-          description: error || "Произошла неизвестная ошибка. Проверьте данные и повторите попытку.",
-          variant: "destructive",
-        });
+        return <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
     }
-  } else {
-    toast({
-      title: "Сетевая ошибка",
-      description: "Не удалось установить соединение с сервером. Проверьте интернет или попробуйте позже.",
-      variant: "destructive",
-    });
-  }
-}
-  }
+  };
+
+  const fetchSuggestions = async (input: string) => {
+    if (!input) return setSuggestions([]);
+
+    if ((type === "house" && (!cityValue || !streetValue)) || (type === "street" && !cityValue)) {
+      return setSuggestions([]);
+    }
+  
+    try {
+      setLoading(true);
+      setError(false);
+
+      let fullQuery = "Россия, ";
+      if (type === "locality") {
+        fullQuery += input;
+      } else if (type === "street") {
+        fullQuery += `${cityValue}, ${input}`;
+      } else if (type === "house") {
+        fullQuery += `${cityValue}, ${streetValue}, ${input}`;
+      }
+  
+      const params = new URLSearchParams({
+        query: fullQuery,
+        type,
+      });
+  
+      const response = await fetch(`https://best-yard.onrender.com/api/suggest?${params.toString()}`);
+      if (!response.ok) throw new Error("Ошибка запроса к серверу");
+  
+      const data = await response.json();
+      let filteredSuggestions: string[] = Array.from(new Set(data.suggestions || []));
+
+      if (type === "house") {
+        filteredSuggestions = filteredSuggestions
+          .map((s) => {
+            const match = s.match(/(?:\d+[A-Za-zа-яА-Я]*)$/);
+            return match ? match[0] : null;
+          })
+          .filter((s): s is string => !!s);
+  
+        console.log("🏠 Фильтрованные дома:", filteredSuggestions);
+      }
+  
+      setSuggestions(filteredSuggestions);
+    } catch (err) {
+      console.error("❌ Ошибка получения подсказок:", err);
+      setError(true);
+      setSuggestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };  
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchSuggestions(inputValue), 300);
+    return () => clearTimeout(timer);
+  }, [inputValue, type, cityValue, streetValue]);
+
+  useEffect(() => setInputValue(value || ""), [value]);
+
+  const renderEmptyMessage = () => {
+    if (loading) return (
+      <div className="flex items-center justify-center py-4 text-gray-600 dark:text-gray-400">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        Загрузка...
+      </div>
+    );
+    if (error) return (
+      <div className="flex items-center justify-center py-4 text-red-600 dark:text-red-400">
+        Ошибка загрузки
+      </div>
+    );
+    if (suggestions.length === 0) return (
+      <div className="flex items-center justify-center py-4 text-gray-500 dark:text-gray-400">
+        Ничего не найдено
+      </div>
+    );
+    return null;
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-muted/40">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Вход в личный кабинет</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <RadioGroup
-              defaultValue="address"
-              value={loginType}
-              onValueChange={(value) => setLoginType(value as "address" | "account")}
-              className="grid grid-cols-2 gap-4 mb-6"
-            >
-              <div>
-                <RadioGroupItem value="address" id="address" className="peer sr-only" />
-                <Label
-                  htmlFor="address"
-                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                >
-                  <span className="text-sm font-medium">По адресу</span>
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="account" id="account" className="peer sr-only" />
-                <Label
-                  htmlFor="account"
-                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                >
-                  <span className="text-sm font-medium">По лицевому счету</span>
-                </Label>
-              </div>
-            </RadioGroup>
-
-            {loginType === "address" ? (
-              <>
-                <div className="space-y-2">
-                  <AddressAutocomplete
-                    value={formData.city}
-                    onChange={(value) => setFormData({ ...formData, city: value })}
-                    placeholder="Город"
-                    type="locality"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <AddressAutocomplete
-                    value={formData.street}
-                    onChange={(value) => setFormData({ ...formData, street: value })}
-                    placeholder="Улица"
-                    type="street"
-                    cityValue={formData.city}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <AddressAutocomplete
-                    value={formData.house}
-                    onChange={(value) => {
-                      const num = parseInt(value);
-                      if (!value || (num >= 1 && num <= 300)) {
-                        setFormData({ ...formData, house: value });
-                      }
-                    }}
-                    placeholder="Дом"
-                    type="house"
-                    cityValue={formData.city}
-                    streetValue={formData.street}
-                  />
-                  <Input
-                    placeholder="Квартира"
-                    value={formData.apartment}
-                    onChange={(e) => setFormData({ ...formData, apartment: e.target.value })}
-                    type="number"
-                    min="1"
-                    max="500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Input
-  placeholder="Номер договора"
-  value={formData.contract}
-  onChange={(e) => {
-    const value = e.target.value;
-    if (/^\d*$/.test(value) && value.length <= 12) {
-      setFormData({ ...formData, contract: value });
-    }
-  }}
-  maxLength={12}
-/>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <Input
-  placeholder="Номер лицевого счета"
-  value={formData.accountNumber}
-  onChange={(e) => {
-    const value = e.target.value;
-    if (/^\d*$/.test(value) && value.length <= 16) {
-      setFormData({ ...formData, accountNumber: value });
-    }
-  }}
-  maxLength={16}
-/>
-              </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="outline" 
+          role="combobox" 
+          aria-expanded={open} 
+          className={cn(
+            "w-full justify-between h-11 px-3 py-2",
+            "bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700",
+            "hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gray-50 dark:hover:bg-gray-700",
+            "focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20",
+            "transition-all duration-200",
+            "text-left font-normal",
+            !value && "text-gray-500 dark:text-gray-400"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {getIcon()}
+            <span className="truncate">
+              {value || placeholder}
+            </span>
+          </div>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className={cn(
+        "w-[var(--radix-popover-trigger-width)] p-0",
+        "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700",
+        "shadow-2xl backdrop-blur-sm",
+        "rounded-xl overflow-hidden"
+      )}>
+        <Command className="rounded-xl border-0">
+          <CommandInput
+            className={cn(
+              "h-11 border-0 border-b border-gray-200 dark:border-gray-700",
+              "bg-gray-50 dark:bg-gray-900/50",
+              "text-gray-900 dark:text-gray-100",
+              "placeholder:text-gray-500 dark:placeholder:text-gray-400",
+              "focus:bg-white dark:focus:bg-gray-800",
+              "transition-colors duration-200",
+              inputClassName
             )}
-            <Button type="submit" className="w-full">
-              Войти
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            placeholder={`Поиск ${
+              type === "locality" ? "города"
+              : type === "street" ? "улицы"
+              : "дома"
+            }...`}
+            value={inputValue}
+            onValueChange={setInputValue}
+          />
+          <CommandList className="max-h-60">
+            {renderEmptyMessage() && (
+              <CommandEmpty className="py-0">
+                {renderEmptyMessage()}
+              </CommandEmpty>
+            )}
+            <CommandGroup className="p-2">
+              {suggestions.map((suggestion) => (
+                <CommandItem
+                  key={suggestion}
+                  value={suggestion}
+                  onSelect={() => {
+                    onChange(suggestion);
+                    setInputValue(suggestion);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "cursor-pointer rounded-lg px-3 py-2 mb-1",
+                    "hover:bg-blue-50 dark:hover:bg-blue-900/20",
+                    "data-[selected=true]:bg-blue-100 dark:data-[selected=true]:bg-blue-900/30",
+                    "transition-colors duration-150",
+                    value === suggestion && "bg-blue-50 dark:bg-blue-900/20"
+                  )}
+                >
+                  <Check 
+                    className={cn(
+                      "mr-2 h-4 w-4 text-blue-600 dark:text-blue-400", 
+                      value === suggestion ? "opacity-100" : "opacity-0"
+                    )} 
+                  />
+                  <span className="text-gray-900 dark:text-gray-100">
+                    {suggestion}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
-};
-
-export default Login;
+}
