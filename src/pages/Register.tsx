@@ -1,10 +1,11 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Building, Home, User } from "lucide-react";
+import { MapPin, Building, Home, User, CreditCard, Hash } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const Register = () => {
@@ -96,114 +97,150 @@ const Register = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Регистрация адреса</h1>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20">
+      <div className="w-full max-w-2xl">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full mb-4 shadow-lg">
+            <User className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Регистрация адреса
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Заполните все поля для регистрации в системе
+          </p>
+        </div>
+
+        <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl text-center font-semibold text-gray-800 dark:text-gray-200">
+              Введите данные
+            </CardTitle>
+            <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+              Поля со звездочкой (*) обязательны для заполнения
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Город *
+                </Label>
+                <AddressAutocomplete
+                  type="locality"
+                  value={city}
+                  onChange={setCity}
+                  placeholder="Выберите город"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <Building className="w-4 h-4" />
+                  Улица *
+                </Label>
+                <AddressAutocomplete
+                  type="street"
+                  value={street}
+                  onChange={setStreet}
+                  placeholder="Выберите улицу"
+                  cityValue={city}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Home className="w-4 h-4" />
+                    Дом *
+                  </Label>
+                  <AddressAutocomplete
+                    type="house"
+                    value={house}
+                    onChange={setHouse}
+                    placeholder="Выберите дом"
+                    cityValue={city}
+                    streetValue={street}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Квартира *
+                  </Label>
+                  <Input
+                    id="apartment"
+                    value={apartment}
+                    onChange={(e) => setApartment(e.target.value)}
+                    placeholder="№ квартиры"
+                    className="transition-all focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <Hash className="w-4 h-4" />
+                  Номер договора *
+                </Label>
+                <Input
+                  id="contract"
+                  value={contract}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (/^\d*$/.test(value) && value.length <= 12) {
+                      setContract(value);
+                    }
+                  }}
+                  placeholder="Введите 12-значный номер договора"
+                  maxLength={12}
+                  className="transition-all focus:ring-2 focus:ring-blue-500 font-mono"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {contract.length}/12 символов
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Номер лицевого счета *
+                </Label>
+                <Input
+                  id="accountNumber"
+                  value={accountNumber}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (/^\d*$/.test(value) && value.length <= 16) {
+                      setAccountNumber(value);
+                    }
+                  }}
+                  placeholder="Введите 16-значный номер счета"
+                  maxLength={16}
+                  className="transition-all focus:ring-2 focus:ring-blue-500 font-mono text-lg"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {accountNumber.length}/16 символов
+                </p>
+              </div>
+
+              <Button 
+                onClick={handleSubmit} 
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+                disabled={isLoading}
+              >
+                <User className="w-5 h-5 mr-2" />
+                {isLoading ? "Отправка..." : "Зарегистрировать"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="text-center mt-6 text-sm text-gray-500 dark:text-gray-400">
+          <p>Нужна помощь? Обратитесь в службу поддержки</p>
+        </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Введите данные</CardTitle>
-          <CardDescription>
-            Поля со звездочкой (*) обязательны для заполнения
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="city" className="text-sm font-medium flex items-center">
-              <MapPin className="mr-1 h-4 w-4 text-blue-500" />
-              Город *
-            </label>
-            <AddressAutocomplete
-              type="locality"
-              value={city}
-              onChange={setCity}
-              placeholder="Выберите город"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="street" className="text-sm font-medium flex items-center">
-              <Building className="mr-1 h-4 w-4 text-blue-500" />
-              Улица *
-            </label>
-            <AddressAutocomplete
-              type="street"
-              value={street}
-              onChange={setStreet}
-              placeholder="Выберите улицу"
-              cityValue={city}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="house" className="text-sm font-medium flex items-center">
-                <Home className="mr-1 h-4 w-4 text-blue-500" />
-                Дом *
-              </label>
-              <AddressAutocomplete
-                type="house"
-                value={house}
-                onChange={setHouse}
-                placeholder="Выберите дом"
-                cityValue={city}
-                streetValue={street}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="apartment" className="text-sm font-medium">
-                Квартира *
-              </label>
-              <Input
-                id="apartment"
-                value={apartment}
-                onChange={(e) => setApartment(e.target.value)}
-                placeholder="№ квартиры"
-                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="contract" className="text-sm font-medium flex items-center">
-              <User className="mr-1 h-4 w-4 text-blue-500" />
-              Номер договора *
-            </label>
-            <Input
-  id="contract"
-  value={contract}
-  onChange={(e) => setContract(e.target.value)}
-  placeholder="Введите номер договора"
-  maxLength={12} // Ограничение на 12 символов
-  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-/>
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="accountNumber" className="text-sm font-medium">
-              Номер лицевого счета *
-            </label>
-            <Input
-  id="accountNumber"
-  value={accountNumber}
-  onChange={(e) => setAccountNumber(e.target.value)}
-  placeholder="Введите номер лицевого счета"
-  maxLength={16} // Ограничение на 16 символов
-  className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-/>
-          </div>
-
-          <Button 
-            onClick={handleSubmit} 
-            className="w-full bg-blue-600 hover:bg-blue-700 transition-colors mt-4"
-            disabled={isLoading}
-          >
-            {isLoading ? "Отправка..." : "Зарегистрировать"}
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 };
