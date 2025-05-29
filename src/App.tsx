@@ -31,7 +31,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const SpecialUserRoute = ({ children }: { children: React.ReactNode }) => {
   const { isSpecialUser } = useAuth();
   if (isSpecialUser) {
-    return <Navigate to="/Index" replace />;
+    return <Navigate to="/" replace />
   }
   return <>{children}</>;
 };
