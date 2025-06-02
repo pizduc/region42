@@ -5,29 +5,16 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  plugins: [react()],
   server: {
     host: "::",
     port: 8080,
-    proxy: {
+    proxy: mode === "development" ? {
       "/api": {
-        target: "http://localhost:8096",
+        target: "http://localhost:10000",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        rewrite: (path) => path,
       },
-    },
-  },
-  preview: {
-    port: 4173,
-    allowedHosts: ["region42.onrender.com", "best-yard.onrender.com"], // ✅ добавили Render-хосты
-  },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+    } : undefined,
   },
 }));
