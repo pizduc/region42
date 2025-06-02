@@ -5,7 +5,7 @@
   "type": "module",
 "scripts": {
   "build": "vite build",
-  "start": "node server.js"
+  "start": "node server.js",
   "db:init": "node SetupDatabase.js"
   },
   "dependencies": {
