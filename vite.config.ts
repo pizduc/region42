@@ -12,14 +12,18 @@ export default defineConfig(({ mode }) => ({
       "/api": {
         target: "http://localhost:10000",
         changeOrigin: true,
-        rewrite: (path) => path, 
+        rewrite: (path) => path,
       },
     },
-  },  
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 4173,
+    allowedHosts: ["region42.onrender.com"], // <== добавлено для продакшена на Render
+  },
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
+    mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
