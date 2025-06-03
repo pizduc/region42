@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import config from "./config.js";
 import moment from 'moment';
+import { generateReceiptBuffer } from './src/utils/generateReceiptBuffer.js';
 
 dotenv.config();
 
@@ -998,6 +999,36 @@ app.post("/api/email/verify", async (req, res) => {
   } catch (err) {
     console.error("Ошибка при подтверждении email:", err);
     res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+app.post("/api/email/send-receipt", async (req, res) => {
+  const { email, receiptData } = req.body;
+
+  if (!email || !receiptData) {
+    return res.status(400).json({ error: "email и receiptData обязательны" });
+  }
+
+  try {
+    const pdfBuffer = await generateReceiptBuffer(receiptData);
+
+    await transporter.sendMail({
+      from: `"Регион 42" <${config.smtp.user}>`,
+      to: email,
+      subject: "Ваш чек об оплате",
+      text: "Во вложении находится чек за оплату ЖКХ.",
+      attachments: [
+        {
+          filename: `chek_${receiptData.receiptNumber}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
+    });
+
+    res.json({ message: "Чек отправлен на email" });
+  } catch (err) {
+    console.error("Ошибка при отправке чека:", err);
+    res.status(500).json({ error: "Ошибка при отправке чека" });
   }
 });
 
