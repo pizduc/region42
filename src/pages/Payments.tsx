@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { subMonths, format, addMonths } from 'date-fns';
 import { ru } from "date-fns/locale";
@@ -198,6 +197,15 @@ const Payments = () => {
     navigate('/');
   };
 
+  const getPaymentMethodName = (method: string) => {
+    switch (method) {
+      case 'card': return 'Банковская карта';
+      case 'sbp': return 'СБП';
+      case 'fast': return 'Система быстрых платежей';
+      default: return method;
+    }
+  };
+
   const handlePayment = async () => {
     if (!selectedPaymentMethod) {
       toast({
@@ -227,6 +235,26 @@ const Payments = () => {
       totalAmount,
       paymentMethod: selectedPaymentMethod,
     };
+
+    // Сохраняем данные для чека
+    const receiptData = {
+      userId,
+      selectedMonth,
+      selectedServices: selectedServices.map(serviceId => {
+        const service = staticServices.concat(floatingServices).find(s => s.id === serviceId);
+        return {
+          id: serviceId,
+          name: service?.name || '',
+          amount: paymentDetails[serviceId] || 0
+        };
+      }),
+      totalAmount,
+      paymentMethod: getPaymentMethodName(selectedPaymentMethod),
+      paymentDate: new Date().toLocaleString('ru-RU'),
+      receiptNumber: `RCP-${Date.now()}`
+    };
+    
+    localStorage.setItem('lastPaymentReceipt', JSON.stringify(receiptData));
 
     try {
       const response = await fetch("https://best-yard.onrender.com/api/save-payment", {
