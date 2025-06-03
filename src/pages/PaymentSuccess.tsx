@@ -1,12 +1,20 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Home, Receipt, ArrowLeft } from "lucide-react";
+import { CheckCircle, Home, Receipt, ArrowLeft, Download, Mail } from "lucide-react";
+import { generateAndDownloadReceipt } from '@/utils/receiptGenerator';
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 const PaymentSuccess = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
 
   const handleBackToMain = () => {
     navigate('/');
@@ -14,6 +22,78 @@ const PaymentSuccess = () => {
 
   const handleBackToPayments = () => {
     navigate('/payments');
+  };
+
+  const handleDownloadReceipt = () => {
+    try {
+      const receiptDataString = localStorage.getItem('lastPaymentReceipt');
+      if (receiptDataString) {
+        const receiptData = JSON.parse(receiptDataString);
+        generateAndDownloadReceipt(receiptData);
+
+        toast({
+          title: "Чек скачан",
+          description: "Чек об оплате скачан на ваше устройство",
+        });
+      } else {
+        toast({
+          title: "Ошибка",
+          description: "Данные чека не найдены",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка при скачивании чека:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось скачать чек",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendByEmail = () => {
+    setEmailModalOpen(true);
+  };
+
+  const submitEmail = async () => {
+    setSending(true);
+    try {
+      const receiptDataString = localStorage.getItem('lastPaymentReceipt');
+      if (!receiptDataString) {
+        toast({
+          title: "Ошибка",
+          description: "Данные чека не найдены",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch("https://best-yard.onrender.com/api/email/send-receipt", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, receiptData: JSON.parse(receiptDataString) })
+});
+
+      if (!response.ok) {
+        throw new Error("Ошибка при отправке письма");
+      }
+
+      toast({
+        title: "Чек отправлен",
+        description: `Чек успешно отправлен на ${email}`,
+      });
+      setEmailModalOpen(false);
+      setEmail("");
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отправить чек",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -48,17 +128,37 @@ const PaymentSuccess = () => {
                   Информация о платеже сохранена в вашем личном кабинете
                 </p>
               </div>
-              
+
               <div className="space-y-3">
-                <Button 
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={handleDownloadReceipt}
+                    variant="outline"
+                    className="border-2 border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Скачать чек
+                  </Button>
+
+                  <Button
+                    onClick={handleSendByEmail}
+                    variant="outline"
+                    className="border-2 border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Отправить
+                  </Button>
+                </div>
+
+                <Button
                   onClick={handleBackToMain}
                   className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
                 >
                   <Home className="w-5 h-5 mr-2" />
                   Вернуться на главную
                 </Button>
-                
-                <Button 
+
+                <Button
                   onClick={handleBackToPayments}
                   variant="outline"
                   className="w-full border-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 font-semibold py-3 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
@@ -75,6 +175,26 @@ const PaymentSuccess = () => {
           <p>Спасибо за использование нашего сервиса!</p>
         </div>
       </div>
+
+      <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Отправка чека по email</DialogTitle>
+            <DialogDescription>
+              Введите адрес электронной почты, на который будет отправлен чек об оплате
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="email"
+            placeholder="example@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Button onClick={submitEmail} disabled={sending}>
+            {sending ? "Отправка..." : "Отправить"}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
