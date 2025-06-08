@@ -37,6 +37,8 @@ export function AppSidebar() {
     !isSpecialUser && { title: "Показания", icon: ListChecks, path: "/meters" },
     { title: "Новости", icon: Newspaper, path: "/news" },
     !isSpecialUser && { title: "Заявки на ремонт", icon: Wrench, path: "/repair-requests" },
+    isSpecialUser && { title: "Все заявки", icon: Wrench, path: "/all-repair-requests" },
+    isSpecialUser && { title: "Управление тарифами", icon: CreditCard, path: "/tariff-management" },
     { title: "Профиль", icon: User, path: "/profile" },
     isSpecialUser && { title: "Регистрация", icon: UserPlus, path: "/register" },
   ].filter(Boolean) as Array<{ title: string; icon: any; path: string }>;
