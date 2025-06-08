@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { subMonths, format, addMonths } from 'date-fns';
 import { ru } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,23 +8,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Home, CreditCard, QrCode, User } from "lucide-react";
+import { Home, CreditCard, QrCode, User, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// Статичные тарифы
-const staticServices = [
-  { id: "heating", name: "Отопление", price: 500 },
-  { id: "maintenance", name: "Содержание жилья", price: 300 },
-];
-
-// Плавающие тарифы
-const floatingServices = [
-  { id: "electricity", name: "Электроснабжение", price: 4.70 },
-  { id: "hot_water", name: "Горячее водоснабжение", price: 17.51 },
-  { id: "cold_water", name: "Холодное водоснабжение", price: 80.69 },
-];
+interface Tariff {
+  id: string;
+  name: string;
+  price: number;
+  type: 'static' | 'floating';
+}
 
 const Payments = () => {
   const navigate = useNavigate();
@@ -35,27 +30,75 @@ const Payments = () => {
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [paymentDetails, setPaymentDetails] = useState<any>({});
   const [unpaidMonths, setUnpaidMonths] = useState<string[]>([]);
+  const [tariffs, setTariffs] = useState<Tariff[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isCalculating, setIsCalculating] = useState<boolean>(false);
 
-  // Генерация списка месяцев начиная с текущего
-  const getMonths = () => {
-    const currentDate = new Date();
-    const monthsArray = [];
-  
-    const firstMonth = subMonths(currentDate, 1); // прошлый месяц
-  
-    for (let i = 0; i < 12; i++) {
-      const month = addMonths(firstMonth, i);
-      const formatted = format(month, "MMMM yyyy", { locale: ru });
-      monthsArray.push(formatted);
+  const fetchTariffs = async () => {
+    try {
+      const response = await fetch('https://best-yard.onrender.com/api/tariffs');
+      const data = await response.json();
+      
+      if (data.success) {
+        setTariffs(data.tariffs);
+      } else {
+        toast({
+          title: "Ошибка",
+          description: "Не удалось загрузить тарифы",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка при загрузке тарифов:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить тарифы с сервера",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  
-    return monthsArray;
   };
-  
-  const months = getMonths();  
 
-  const calculatePayment = async () => {
-    const userId = localStorage.getItem('userId');  // Получаем userId из localStorage
+  const fetchUnpaidMonths = useCallback(async () => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      toast({
+        title: "Ошибка",
+        description: "Пользователь не авторизован",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://best-yard.onrender.com/api/unpaid-months?userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.unpaidMonths && data.unpaidMonths.length > 0) {
+        const formatted = data.unpaidMonths.map((m: string) => {
+          const [year, month] = m.split("-");
+          const date = new Date(Number(year), Number(month) - 1);
+          return format(date, "MMMM yyyy", { locale: ru });
+        });
+        setUnpaidMonths(formatted);
+      } else {
+        const currentMonth = format(new Date(), "MMMM yyyy", { locale: ru });
+        setUnpaidMonths([currentMonth]);
+      }
+    } catch (error) {
+      console.error("❌ Ошибка при получении неоплаченных месяцев:", error);
+      const currentMonth = format(new Date(), "MMMM yyyy", { locale: ru });
+      setUnpaidMonths([currentMonth]);
+    }
+  }, [toast]);
+
+  const getAvailableMonths = () => {
+    return unpaidMonths;
+  };
+
+const calculatePayment = useCallback(async () => {
+    const userId = localStorage.getItem('userId');
 
     if (!userId) {
       toast({
@@ -67,13 +110,10 @@ const Payments = () => {
     }
 
     if (!selectedMonth || selectedServices.length === 0) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, выберите месяц и услуги",
-        variant: "destructive",
-      });
       return;
     }
+
+    setIsCalculating(true);
 
     try {
       const response = await fetch(`https://best-yard.onrender.com/api/calculate-payment?userId=${userId}&selectedMonth=${encodeURIComponent(selectedMonth)}&selectedServices=${selectedServices.join(",")}`);
@@ -88,35 +128,28 @@ const Payments = () => {
         return;
       }
 
-      // Получаем список неоплаченных месяцев
-      const unpaidMonths = data.unpaidMonths || [];
-      setUnpaidMonths(unpaidMonths); // Сохраняем их в состояние
-
-      // Остальной код для расчета платежей, например:
-      let total = 0;
+      let total = 0; 
       const serviceDetails = {};
 
-      staticServices.concat(floatingServices).forEach((service) => {
+      tariffs.forEach((service) => {
         if (selectedServices.includes(service.id)) {
           let cost = 0;
 
-          // Для статичных услуг просто берем стоимость из сервера
-          if (staticServices.some(s => s.id === service.id)) {
-            cost = data.details?.[service.id] ?? 0; // Получаем итоговую стоимость с сервера
+          if (data.details && data.details[service.id] !== undefined && data.details[service.id] > 0) {
+            cost = Number(data.details[service.id]); 
+            console.log(`Услуга: ${service.name}, Стоимость: ${cost.toFixed(2)}, Тип расчета: по показаниям`);
           } else {
-            // Для плавающих услуг тоже получаем итоговую стоимость с сервера
-            cost = data.details?.[service.id] ?? 0; // Получаем итоговую стоимость с сервера
+            cost = Number(service.price); 
+            console.log(`Услуга: ${service.name}, Стоимость: ${cost.toFixed(2)}, Тип расчета: по базовому тарифу (нет данных за прошлый месяц)`);
           }
 
           serviceDetails[service.id] = cost;
-          total += cost;
-
-          console.log(`Услуга: ${service.name}, Стоимость: ${cost}`);
+          total += cost; 
         }
       });
 
-      setTotalAmount(parseFloat(total.toFixed(2))); // Итоговая сумма
-      setPaymentDetails(serviceDetails); // Детали расчета
+      setTotalAmount(Number(total.toFixed(2)));
+      setPaymentDetails(serviceDetails);
 
     } catch (error) {
       console.error("Ошибка при расчете платежа", error);
@@ -125,10 +158,11 @@ const Payments = () => {
         description: "Не удалось получить данные с сервера.",
         variant: "destructive",
       });
+    } finally {
+      setIsCalculating(false);
     }
-  };
+  }, [selectedMonth, selectedServices, tariffs, toast]);
 
-  // Пример преобразования: из "июня 2025" в "2025-06"
   function formatMonth(monthName: string): string {
     const monthMap: Record<string, string> = {
       'января': '01',
@@ -147,51 +181,26 @@ const Payments = () => {
 
     const [name, year] = monthName.split(' ');
     const month = monthMap[name.toLowerCase()];
-    return `${year}-${month}`; // например: 2025-06
+    return `${year}-${month}`;
   }
 
   useEffect(() => {
-    const fetchUnpaidMonths = async () => {
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
-        toast({
-          title: "Ошибка",
-          description: "Пользователь не авторизован",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      try {
-        const response = await fetch(`https://best-yard.onrender.com/api/unpaid-months?userId=${userId}`);
-        const data = await response.json();
-        
-        if (data.unpaidMonths) {
-          const formatted = data.unpaidMonths.map((m: string) => {
-            const [year, month] = m.split("-");
-            const date = new Date(Number(year), Number(month) - 1);
-            return format(date, "MMMM yyyy", { locale: ru });
-          });
-          setUnpaidMonths(formatted);
-        }
-      } catch (error) {
-        console.error("❌ Ошибка при получении неоплаченных месяцев:", error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось получить информацию о неоплаченных месяцах.",
-          variant: "destructive",
-        });
-      }
-    };
-
+    fetchTariffs();
     fetchUnpaidMonths();
-  }, []);
+  }, [fetchUnpaidMonths]);
 
   useEffect(() => {
-    if (selectedMonth && selectedServices.length > 0) {
-      calculatePayment();
+    if (selectedMonth && selectedServices.length > 0 && tariffs.length > 0) {
+      const timeoutId = setTimeout(() => {
+        calculatePayment();
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      setTotalAmount(0);
+      setPaymentDetails({});
     }
-  }, [selectedMonth, selectedServices]);  
+  }, [selectedMonth, selectedServices, tariffs, calculatePayment]);
 
   const handleBackToMain = () => {
     navigate('/');
@@ -226,7 +235,7 @@ const Payments = () => {
       return;
     }
 
-    const formattedMonth = formatMonth(selectedMonth); // 📅 преобразуем месяц
+    const formattedMonth = formatMonth(selectedMonth);
 
     const paymentData = {
       userId,
@@ -236,12 +245,11 @@ const Payments = () => {
       paymentMethod: selectedPaymentMethod,
     };
 
-    // Сохраняем данные для чека
     const receiptData = {
       userId,
       selectedMonth,
       selectedServices: selectedServices.map(serviceId => {
-        const service = staticServices.concat(floatingServices).find(s => s.id === serviceId);
+        const service = tariffs.find(s => s.id === serviceId);
         return {
           id: serviceId,
           name: service?.name || '',
@@ -273,7 +281,6 @@ const Payments = () => {
           description: `Сумма к оплате: ${totalAmount.toFixed(2)} ₽`,
         });
 
-        // ✅ Удаляем месяц из неоплаченных
         setUnpaidMonths(prev => prev.filter(m => m !== selectedMonth));
 
         navigate('/payment-success');
@@ -294,10 +301,22 @@ const Payments = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Загрузка тарифов...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const availableMonths = getAvailableMonths();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Заголовок с иконкой */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full mb-4 shadow-lg">
             <CreditCard className="w-8 h-8 text-white" />
@@ -311,7 +330,6 @@ const Payments = () => {
         </div>
 
         <div className="grid gap-6">
-          {/* Кнопка "На главную" */}
           <div className="flex justify-end">
             <Button 
               variant="outline" 
@@ -323,7 +341,6 @@ const Payments = () => {
             </Button>
           </div>
 
-          {/* Выбор периода */}
           <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -337,24 +354,22 @@ const Payments = () => {
                   <SelectValue placeholder="Выберите месяц" />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                  {Array.from(new Set([selectedMonth, ...months.filter(month => unpaidMonths.includes(month))]))
-                    .filter(Boolean)
-                    .map((month, index) => (
-                      <SelectItem key={index} value={month} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        {month}
-                      </SelectItem>
-                    ))}
+                  {availableMonths.map((month, index) => (
+                    <SelectItem key={index} value={month} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      {month}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </CardContent>
           </Card>
 
-          {/* Начисления */}
           <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Начисления
+                {isCalculating && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -367,7 +382,7 @@ const Payments = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {staticServices.concat(floatingServices).map((service) => (
+                  {tariffs.map((service) => (
                     <div key={service.id} className="grid grid-cols-12 items-center p-3 rounded-lg bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 hover:shadow-md transition-all">
                       <div className="col-span-1">
                         <Checkbox
@@ -387,7 +402,7 @@ const Payments = () => {
                         {service.name}
                       </Label>
                       <div className="col-span-2 text-right font-semibold text-gray-700 dark:text-gray-300">
-                        {service.price.toFixed(2)} ₽
+                        {Number(service.price).toFixed(2)} ₽
                       </div>
                       <div className="col-span-2 text-right font-bold text-blue-600 dark:text-blue-400">
                         {selectedServices.includes(service.id)
@@ -403,7 +418,6 @@ const Payments = () => {
             </CardContent>
           </Card>
 
-          {/* Итого и оплата */}
           <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
             <CardContent className="pt-6">
               <div className="space-y-6">
@@ -460,10 +474,17 @@ const Payments = () => {
                 
                 <Button
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-4 text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
-                  disabled={!selectedMonth || selectedServices.length === 0}
+                  disabled={!selectedMonth || selectedServices.length === 0 || isCalculating}
                   onClick={handlePayment}
                 >
-                  Перейти к оплате
+                  {isCalculating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Расчет...
+                    </>
+                  ) : (
+                    "Перейти к оплате"
+                  )}
                 </Button>
               </div>
             </CardContent>
