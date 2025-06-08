@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,14 +12,15 @@ import Meters from "./pages/Meters";
 import Profile from "./pages/Profile";
 import News from "./pages/News";
 import RepairRequests from "./pages/RepairRequests";
-import Register from "./pages/Register";  // Исправленный импорт страницы регистрации для специальных пользователей
+import Register from "./pages/Register";  
 import NotFound from "./pages/NotFound";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import PaymentSuccess from './pages/PaymentSuccess';
+import AllRepairRequests from "./pages/AllRepairRequests";
+import TariffManagement from "./pages/TariffManagement";
 
 const queryClient = new QueryClient();
 
-// Защищенный маршрут, доступный только для аутентифицированных пользователей
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
@@ -27,20 +29,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Специальный маршрут, скрывающий страницы для specialUser
 const SpecialUserRoute = ({ children }: { children: React.ReactNode }) => {
   const { isSpecialUser } = useAuth();
   if (isSpecialUser) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/profile" replace />;
   }
   return <>{children}</>;
 };
 
-// Специальный маршрут, который показывает страницы только для specialUser
 const SpecialUserOnlyRoute = ({ children }: { children: React.ReactNode }) => {
   const { isSpecialUser } = useAuth();
   if (!isSpecialUser) {
-    return <Navigate to="/" replace />; // Перенаправляем на главную, если пользователь не специальный
+    return <Navigate to="/" replace />; 
   }
   return <>{children}</>;
 };
@@ -63,7 +63,6 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              {/* Страница оплаты и показаний скрыта для SpecialUser */}
               <Route
                 path="/payments"
                 element={
@@ -84,7 +83,6 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              {/* Страница профиля доступна для всех */}
               <Route
                 path="/profile"
                 element={
@@ -101,7 +99,6 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              {/* Страница регистрации доступна только для специального пользователя */}
               <Route
                 path="/register"
                 element={
@@ -119,6 +116,26 @@ const App = () => (
                     <SpecialUserRoute>
                       <RepairRequests />
                     </SpecialUserRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/all-repair-requests"
+                element={
+                  <ProtectedRoute>
+                    <SpecialUserOnlyRoute>
+                      <AllRepairRequests />
+                    </SpecialUserOnlyRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tariff-management"
+                element={
+                  <ProtectedRoute>
+                    <SpecialUserOnlyRoute>
+                      <TariffManagement />
+                    </SpecialUserOnlyRoute>
                   </ProtectedRoute>
                 }
               />
