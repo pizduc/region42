@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, Download } from "lucide-react";
+import { CreditCard, ListChecks, Newspaper, User, Clock, ArrowRight, Wrench, Download, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -77,6 +77,33 @@ const Index = () => {
       bgColor: "bg-orange-50 dark:bg-orange-900/20",
       iconColor: "text-orange-600 dark:text-orange-400",
     },
+    isSpecialUser && {
+      title: "Все заявки",
+      icon: Wrench,
+      description: "Просмотр всех заявок на ремонт",
+      path: "/all-repair-requests",
+      color: "from-orange-500 to-orange-600",
+      bgColor: "bg-orange-50 dark:bg-orange-900/20",
+      iconColor: "text-orange-600 dark:text-orange-400",
+    },
+    isSpecialUser && {
+      title: "Управление тарифами",
+      icon: CreditCard,
+      description: "Настройка и управление тарифами",
+      path: "/tariff-management",
+      color: "from-emerald-500 to-emerald-600",
+      bgColor: "bg-emerald-50 dark:bg-emerald-900/20",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
+    },
+    isSpecialUser && {
+      title: "Регистрация",
+      icon: UserPlus,
+      description: "Регистрация новых пользователей",
+      path: "/register",
+      color: "from-indigo-500 to-indigo-600",
+      bgColor: "bg-indigo-50 dark:bg-indigo-900/20",
+      iconColor: "text-indigo-600 dark:text-indigo-400",
+    },
     {
       title: "Профиль",
       icon: User,
@@ -101,66 +128,68 @@ const Index = () => {
   const currentMonth = new Date().toLocaleString("ru-RU", { month: "long", year: "numeric" });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 p-4">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border-0">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white mb-6">
-            <h1 className="text-4xl font-bold tracking-tight mb-3">Добро пожаловать</h1>
-            <p className="text-xl opacity-90 mb-4">
-              {userAddress ? (
-                `${userAddress.city}, ул. ${userAddress.street}, д. ${userAddress.house}, кв. ${userAddress.apartment}`
-              ) : (
-                "Адрес не найден"
-              )}
-            </p>
-            <div className="flex items-center text-sm bg-white/20 p-3 rounded-lg backdrop-blur-sm">
-              <Clock className="h-5 w-5 mr-2" />
-              <span>
-                Последний вход: {new Date().toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
-              </span>
-            </div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-800 via-slate-900 to-slate-900">
+      <div className="w-full">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 sm:p-6 lg:p-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight mb-2 sm:mb-3 text-white">
+            Добро пожаловать
+          </h1>
+          <p className="text-sm sm:text-base md:text-lg lg:text-xl opacity-90 mb-3 sm:mb-4 text-white">
+            {userAddress ? (
+              `${userAddress.city}, ул. ${userAddress.street}, д. ${userAddress.house}, кв. ${userAddress.apartment}`
+            ) : (
+              "Адрес не найден"
+            )}
+          </p>
+          <div className="flex items-center text-xs sm:text-sm bg-white/20 p-2 sm:p-3 rounded-lg backdrop-blur-sm text-white max-w-fit">
+            <Clock className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+            <span>
+              Последний вход: {new Date().toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+            </span>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {menuItems.map((item) => (
-            <Card
-              key={item.title}
-              className="cursor-pointer group bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
-              onClick={() => {
-                if (item.isDownload) {
-                  window.location.href = item.path; 
-                } else {
-                  navigate(item.path); 
-                }
-              }}
-            >
-              <div className={`h-2 bg-gradient-to-r ${item.color} group-hover:h-3 transition-all duration-300`}></div>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-                    {item.title}
-                  </CardTitle>
-                  <div className={`p-3 rounded-full ${item.bgColor} ${item.iconColor} group-hover:scale-110 transition-transform duration-300`}>
-                    <item.icon className="h-6 w-6" />
+        <div className="p-3 sm:p-4 lg:p-6">
+          <div className="grid gap-3 sm:gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+            {menuItems.map((item) => (
+              <Card
+                key={item.title}
+                className="cursor-pointer group bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] overflow-hidden"
+                onClick={() => {
+                  if (item.isDownload) {
+                    window.location.href = item.path; 
+                  } else {
+                    navigate(item.path); 
+                  }
+                }}
+              >
+                <div className={`h-1 sm:h-2 bg-gradient-to-r ${item.color} group-hover:h-2 sm:group-hover:h-3 transition-all duration-300`}></div>
+                <CardHeader className="pb-3 sm:pb-4 p-3 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base sm:text-lg lg:text-xl font-semibold text-white group-hover:text-gray-100 transition-colors">
+                      {item.title}
+                    </CardTitle>
+                    <div className={`p-2 sm:p-3 rounded-full ${item.bgColor} ${item.iconColor} group-hover:scale-110 transition-transform duration-300`}>
+                      <item.icon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
-                  {item.description}
-                </p>
-                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  <span className="font-medium">Перейти</span>
-                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent className="pt-0 p-3 sm:p-6 sm:pt-0">
+                  <p className="text-slate-300 mb-3 sm:mb-4 leading-relaxed text-xs sm:text-sm lg:text-base">
+                    {item.description}
+                  </p>
+                  <div className="flex items-center text-xs sm:text-sm text-slate-400 group-hover:text-blue-400 transition-colors">
+                    <span className="font-medium">Перейти</span>
+                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
 
-        <div className="text-center py-6">
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+        <div className="text-center py-4 sm:py-6">
+          <p className="text-slate-400 text-xs sm:text-sm">
             Личный кабинет жильца • {currentMonth}
           </p>
         </div>
