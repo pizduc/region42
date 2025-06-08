@@ -1032,7 +1032,7 @@ app.post("/api/email/send-receipt", async (req, res) => {
   }
 });
 
-const buildPath = path.join(__dirname, 'build');
+const buildPath = path.resolve(__dirname, './dist');
 
 app.use(express.static(buildPath));
 
